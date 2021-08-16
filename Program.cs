@@ -5,27 +5,15 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Text;
 
-namespace CobolParser
+namespace CobolToCSharp
 {
     class Program
     {
-        private static readonly string FileName = "sc700.cbl";
+        //private static readonly string FileName = "sc700.cbl";
+        private static readonly string FileName = "small.cbl";
 
-        #region Regex
-        private static Regex RegexGOTO = new Regex("^GO[ ]+TO");
-        private static Regex RegexEXECSQL = new Regex("^EXEC[ ]+SQL");
-        private static Regex RegexEXITPROGRAM = new Regex("^EXIT[ ]+PROGRAM");
-        private static Regex RegexMOVE = new Regex("^MOVE");
-        private static Regex RegexIF = new Regex("^IF");
-        private static Regex RegexPERFORM = new Regex("^PERFORM");
-        private static Regex RegexELSE = new Regex("^ELSE");
-        private static Regex RegexDISPLAY = new Regex("^DISPLAY");
-        private static Regex RegexADD = new Regex("^ADD");
-        private static Regex RegexSUBTRACT = new Regex("^SUBTRACT");
-        private static Regex RegexCOMPUTE = new Regex("^COMPUTE");
-        private static Regex RegexDIVIDE = new Regex("^DIVIDE");
-        private static Regex RegexMULTIPLY = new Regex("^MULTIPLY");
-        private static Regex RegexCALL = new Regex("^CALL");
+        static int numberOfConvertedLines = 0;
+        #region Regex        
         private static Regex RegexCOMMENT = new Regex(@"^\*");
         private static Regex RegexStatement = new Regex("^(MOVE|IF|PERFORM|ELSE|DISPLAY|ADD|SUBTRACT|COMPUTE|CALL|DIVIDE|MULTIPLY|GO[ ]+TO|EXIT[ ]+PROGRAM)");
         private static readonly Regex ParagraphRegex = new Regex(@"^[a-zA-Z0-9-_]+\.$");
@@ -45,30 +33,33 @@ namespace CobolParser
         private static void ProcessParagraphs(List<Paragraph> Paragraphs)
         {
             int i = 0;
+            numberOfConvertedLines = Paragraphs.Count;
             foreach (var Paragraph in Paragraphs)
             {
                 ProcessParagraph(++i,Paragraph);
             }
+
+            int x = 10;
         }
         private static void ProcessParagraph(int Index,Paragraph Paragraph)
         {
-            StringBuilder CSV = new StringBuilder();
-            CSV.AppendLine("COBOL,C#");
+            //StringBuilder CSV = new StringBuilder();
+            //CSV.AppendLine("COBOL,C#");
             foreach (var Statement in Paragraph.Statements)
             {
-                if(Statement.StatementType == StatementType.MOVE)
+                if(Statement.StatementType == StatementType.GOTO)
                 {
-                    CSV.AppendLine($"{Statement.Raw},{Statement.Converted}");
+                    //CSV.AppendLine($"{Statement.Raw},{Statement.Converted}");
                     string C = Statement.Converted;
-                }
-
-            }
-            if (!Directory.Exists("MoveStatements"))
-                Directory.CreateDirectory("MoveStatements");
-            using (StreamWriter Writer=new StreamWriter(@$"MoveStatements\{Index.ToString().PadLeft(3,'0')}-{Paragraph.Name}-MoveStatements.csv"))
-            {
-                Writer.Write(CSV);
-            }
+                    numberOfConvertedLines++;
+                }           
+            }                  
+            //if (!Directory.Exists("MoveStatements"))
+            //    Directory.CreateDirectory("MoveStatements");
+            //using (StreamWriter Writer=new StreamWriter(@$"MoveStatements\{Index.ToString().PadLeft(3,'0')}-{Paragraph.Name}-MoveStatements.csv"))
+            //{
+            //    Writer.Write(CSV);
+            //}
         }
         
         
@@ -94,7 +85,7 @@ namespace CobolParser
                     {
                         if (CollectSQL)
                         {
-                            SBStatement.Append("");
+                            SBStatement.Append(" ");
                             SBStatement.Append(Line);
                             if (Line.Equals("END-EXEC."))
                             {
@@ -108,12 +99,14 @@ namespace CobolParser
                         {
                             Paragraphs.Add(new Paragraph()
                             {
-                                Name = Line
+                                Name = Line,
+                                Paragraphs = Paragraphs
                             });
                             continue;
                         }
                         else if (Line.Equals("EXEC SQL"))
-                        {
+                        {                                                  
+                            Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum);
                             CollectSQL = true;
                             StatementRowNum = RowNum;
                             SBStatement = new StringBuilder();
@@ -121,12 +114,7 @@ namespace CobolParser
                         }
                         else if (RegexCOMMENT.IsMatch(Line))
                         {
-                            Paragraphs.Last().Statements.Add(new Statement()
-                            {
-                                Raw = Line,
-                                RowNo = RowNum,
-                                StatementType = StatementType.COMMENT
-                            });
+                            Paragraphs.Last().AddStatement(SBStatement.ToString(), RowNum);                            
                         }
                         else if (RegexStatement.IsMatch(Line))
                         {
@@ -140,71 +128,15 @@ namespace CobolParser
                             SBStatement.Append(Line);
                         }
                     }
-                }               
+                }
+            }
+
+            if (Paragraph.GetStatementType(SBStatement.ToString()) != StatementType.QUERY)
+            {
+                Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum);
             }
             ProcessParagraphs(Paragraphs);
 
-        }
-
-        //private static void Process(string FilePath)
-        //{
-        //    string[] PredefinedParagraphs = new string[] { "EXEC SQL", "END-EXEC." };
-        //    List<string> SQLQueries = new List<string>();           
-        //    List<string> ProcedureParagraphs = new List<string>();
-        //    StringBuilder SBQuery = new StringBuilder();
-        //    StringBuilder SBStatement = new StringBuilder();
-        //    string[] Lines = File.ReadAllLines(FilePath).Select(r=> RemoveNumericsAtStart(r)).ToArray();
-        //    List<Paragraph> Paragraphs = new List<Paragraph>();
-        //    bool CollectSQL = false;
-        //    bool StartParse = false;
-        //    foreach (var Line in Lines.Where(L=>!string.IsNullOrEmpty(L)))
-        //    {
-        //        if (Line.Equals("P-INITIAL."))
-        //        {
-        //            StartParse = true;
-        //           // continue;
-        //        }
-        //        if (StartParse)
-        //        {
-        //            if (CollectSQL)
-        //            {
-        //                if (SBQuery.Length > 0)
-        //                    SBQuery.Append(" ");
-
-        //                if (Line.Equals("END-EXEC."))
-        //                {
-        //                    CollectSQL = false;
-        //                    SQLQueries.Add(SBQuery.ToString());
-        //                }
-        //                SBQuery.Append(Line);
-        //            }
-
-
-        //            if (Line.Equals("EXEC SQL"))
-        //            {
-        //                CollectSQL = true;
-        //                SBQuery = new StringBuilder();
-        //            }
-
-
-
-        //            if ( !PredefinedParagraphs.Contains(Line) && ParagraphRegex.IsMatch(Line))
-        //            {
-        //                Paragraphs.Add(new Paragraph()
-        //                {
-        //                    Name = Line
-        //                });
-        //                continue;
-
-        //            }
-
-
-        //            Paragraphs.Last().Lines.Add(Line);
-
-        //        }
-        //    }
-        //    ProcessParagraphs(Paragraphs);
-
-        //}
+        }       
     }
 }

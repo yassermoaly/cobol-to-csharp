@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace CobolParser
+namespace CobolToCSharp
 {
     public class Paragraph
     {
@@ -28,7 +28,7 @@ namespace CobolParser
         private static Regex RegexStatement = new Regex("^(MOVE|IF|PERFORM|ELSE|DISPLAY|ADD|SUBTRACT|COMPUTE|CALL|DIVIDE|MULTIPLY|GO[ ]+TO|EXIT[ ]+PROGRAM)");
         private static readonly Regex ParagraphRegex = new Regex(@"^[a-zA-Z0-9-_]+\.$");
         #endregion
-
+        public List<Paragraph> Paragraphs { get; set; }
         public Paragraph()
         {
             Statements = new List<Statement>();          
@@ -37,7 +37,7 @@ namespace CobolParser
        
         public List<Statement> Statements { get; set; }
 
-        private static StatementType GetStatementType(string Line)
+        public static StatementType GetStatementType(string Line)
         {
 
             if (RegexGOTO.IsMatch(Line))
@@ -91,6 +91,7 @@ namespace CobolParser
                     Paragraph = this,
                     Raw = Statement,
                     RowNo = RowNo,
+                    Paragraphs = Paragraphs,
                     StatementType = GetStatementType(Statement)
                 });
             }

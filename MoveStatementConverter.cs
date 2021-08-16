@@ -4,13 +4,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace CobolParser
+namespace CobolToCSharp
 {
     public class MoveStatementConverter : IStatementConverter
     {
         public StatementType StatementType => StatementType.MOVE;
 
-        public string Convert(string Line,Paragraph Paragraph)
+        public string Convert(string Line,Paragraph Paragraph, List<Paragraph> Paragraphs)
         {
             Line = Line.Replace("ALL SPACES", "SPACES");
             StringBuilder ConvertedLine = new StringBuilder();
@@ -27,7 +27,7 @@ namespace CobolParser
                 ConvertedLine.Append($"{NamingConverter.Convert(Tokens[1])};");
                 return ConvertedLine.ToString();
             }
-            throw new Exception("Invalid MOVE Statement");
+            throw new Exception($"Invalid {StatementType.ToString()} Statement, {Line}");
         }
     }
 }

@@ -4,11 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace CobolParser
+namespace CobolToCSharp
 {
     public interface IStatementConverter
     {
         StatementType StatementType { get; }
-        string Convert(string Line,Paragraph Paragraph);
+        string Convert(string Line,Paragraph Paragraph,List<Paragraph> Paragraphs);
     }
 }
