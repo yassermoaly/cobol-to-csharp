@@ -9,26 +9,87 @@ namespace CobolToCSharp
 {
     class Program
     {
-        //private static readonly string FileName = "sc700.cbl";
-        private static readonly string FileName = "small.cbl";
-
+         private static readonly string FileName = "sc700.cbl";
+        //private static readonly string FileName = "DEMO.cbl";
+        //private static readonly string FileName = "small.cbl";
+        private static int BlockCount = 0;
         static int numberOfConvertedLines = 0;
         #region Regex        
         private static Regex RegexCOMMENT = new Regex(@"^\*");
-        private static Regex RegexStatement = new Regex("^(MOVE|IF|PERFORM|ELSE|DISPLAY|ADD|SUBTRACT|COMPUTE|CALL|DIVIDE|MULTIPLY|GO[ ]+TO|EXIT[ ]+PROGRAM)");
+        private static Regex RegexStatement = new Regex("^(MOVE|IF|ELSE[ ]+IF|END-IF|PERFORM|ELSE|DISPLAY|ADD|SUBTRACT|COMPUTE|CALL|DIVIDE|MULTIPLY|GO[ ]+TO|EXIT[ ]+PROGRAM|END[ ]+PROGRAM)");
         private static readonly Regex ParagraphRegex = new Regex(@"^[a-zA-Z0-9-_]+\.$");
         #endregion
 
         static void Main(string[] args)
         {
-          
+            DateTime SD = DateTime.Now;
             Console.WriteLine("Start Processing...");
-            Process(FileName);           
+            Process(FileName);
+            Console.WriteLine($"Time Elapsed: {DateTime.Now.Subtract(SD).TotalMilliseconds} Milliseconds");
+            Console.ReadLine();
         }
         private static string RemoveNumericsAtStart(string s)
         {
             Regex rgx = new Regex(@"^\d+");
             return rgx.Replace(s, string.Empty).Trim();
+        }
+        private static void SetBlock(Paragraph Paragraph)
+        {
+            for (int i = 0; i < Paragraph.Statements.Count; i++)
+            {
+                var Statement = Paragraph.Statements[i];
+                switch (Statement.StatementType)
+                {
+                    case StatementType.IF:
+                        // add open below
+                        Paragraph.Statements.Insert(i + 1, new Statement()
+                        {
+                            Raw = String.Empty,
+                            StatementType = StatementType.BEGIN_BLOCK
+                        });
+                        i++;
+                        BlockCount++;
+                        break;                    
+                    case StatementType.ELSE:
+                    case StatementType.ELSE_IF:
+                        Paragraph.Statements.Insert(i, new Statement()
+                        {
+                            Raw = String.Empty,
+                            StatementType = StatementType.END_BLOCK
+                        });
+                        i++;
+                        Paragraph.Statements.Insert(i + 1, new Statement()
+                        {
+                            Raw = String.Empty,
+                            StatementType = StatementType.BEGIN_BLOCK
+                        });
+                        i++;
+                        break;
+                    case StatementType.END_IF:
+                        Statement.StatementType = StatementType.END_BLOCK;
+                        // replace current to close
+                        BlockCount--;
+                        break;
+                    default:
+                        if (Statement.Raw.EndsWith('.'))
+                        {   
+                            int counter = 0;
+                            while (BlockCount > 0)
+                            {
+                                Paragraph.Statements.Insert(i + 1 + counter, new Statement()
+                                {
+                                    Raw = String.Empty,
+                                    StatementType = StatementType.END_BLOCK
+                                });
+                                // add close below
+                                BlockCount--;
+                                counter++;
+                            }
+
+                        }
+                        break;
+                }
+            }
         }
         private static void ProcessParagraphs(List<Paragraph> Paragraphs)
         {
@@ -36,6 +97,7 @@ namespace CobolToCSharp
             numberOfConvertedLines = Paragraphs.Count;
             foreach (var Paragraph in Paragraphs)
             {
+                SetBlock(Paragraph);
                 ProcessParagraph(++i,Paragraph);
             }
 
@@ -43,23 +105,25 @@ namespace CobolToCSharp
         }
         private static void ProcessParagraph(int Index,Paragraph Paragraph)
         {
-            //StringBuilder CSV = new StringBuilder();
-            //CSV.AppendLine("COBOL,C#");
+            StringBuilder CSV = new StringBuilder();
+            CSV.AppendLine("COBOL,C#");
             foreach (var Statement in Paragraph.Statements)
             {
-                if(Statement.StatementType == StatementType.GOTO)
+                if(Statement.StatementType == StatementType.IF)
                 {
-                    //CSV.AppendLine($"{Statement.Raw},{Statement.Converted}");
+                    CSV.AppendLine($"{Statement.Raw},{Statement.Converted}");
                     string C = Statement.Converted;
                     numberOfConvertedLines++;
                 }           
-            }                  
-            //if (!Directory.Exists("MoveStatements"))
-            //    Directory.CreateDirectory("MoveStatements");
-            //using (StreamWriter Writer=new StreamWriter(@$"MoveStatements\{Index.ToString().PadLeft(3,'0')}-{Paragraph.Name}-MoveStatements.csv"))
-            //{
-            //    Writer.Write(CSV);
-            //}
+            }
+            string DirectoryName = "IFStatements";
+            if (!Directory.Exists(DirectoryName))
+                Directory.CreateDirectory(DirectoryName);
+            using (StreamWriter Writer = new StreamWriter(@$"{DirectoryName}\{Index.ToString().PadLeft(3, '0')}-{Paragraph.Name}.csv"))
+            {
+                
+                Writer.Write(CSV);
+            }
         }
         
         
@@ -97,6 +161,10 @@ namespace CobolToCSharp
 
                         if (ParagraphRegex.IsMatch(Line))
                         {
+                            if(Paragraphs.Count>0)
+                                Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum);
+                            StatementRowNum = RowNum;
+                            SBStatement = new StringBuilder();
                             Paragraphs.Add(new Paragraph()
                             {
                                 Name = Line,

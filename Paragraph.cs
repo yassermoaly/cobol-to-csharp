@@ -17,6 +17,8 @@ namespace CobolToCSharp
         private static Regex RegexIF = new Regex("^IF");
         private static Regex RegexPERFORM = new Regex("^PERFORM");
         private static Regex RegexELSE = new Regex("^ELSE");
+        private static Regex RegexELSE_IF = new Regex("^ELSE IF");
+        private static Regex RegexEND_IF = new Regex("^END-IF");
         private static Regex RegexDISPLAY = new Regex("^DISPLAY");
         private static Regex RegexADD = new Regex("^ADD");
         private static Regex RegexSUBTRACT = new Regex("^SUBTRACT");
@@ -25,7 +27,8 @@ namespace CobolToCSharp
         private static Regex RegexMULTIPLY = new Regex("^MULTIPLY");
         private static Regex RegexCALL = new Regex("^CALL");
         private static Regex RegexCOMMENT = new Regex(@"^\*");
-        private static Regex RegexStatement = new Regex("^(MOVE|IF|PERFORM|ELSE|DISPLAY|ADD|SUBTRACT|COMPUTE|CALL|DIVIDE|MULTIPLY|GO[ ]+TO|EXIT[ ]+PROGRAM)");
+        private static Regex RegexENDPROGRAM = new Regex(@"^END[ ]+PROGRAM");
+
         private static readonly Regex ParagraphRegex = new Regex(@"^[a-zA-Z0-9-_]+\.$");
         #endregion
         public List<Paragraph> Paragraphs { get; set; }
@@ -52,6 +55,10 @@ namespace CobolToCSharp
                 return StatementType.IF;
             else if (RegexPERFORM.IsMatch(Line))
                 return StatementType.PERFORM;
+            else if (RegexELSE_IF.IsMatch(Line))
+                return StatementType.ELSE_IF;
+            else if (RegexEND_IF.IsMatch(Line))
+                return StatementType.END_IF;
             else if (RegexELSE.IsMatch(Line))
                 return StatementType.ELSE;
 
@@ -78,7 +85,9 @@ namespace CobolToCSharp
 
             else if (RegexCOMMENT.IsMatch(Line))
                 return StatementType.COMMENT;
-
+            else if (RegexENDPROGRAM.IsMatch(Line))
+                return StatementType.END_PROGRAM;
+            
             throw new Exception($"Statement Type not handeled {Line}");
         }
 

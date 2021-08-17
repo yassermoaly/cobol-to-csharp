@@ -8,7 +8,7 @@ namespace CobolToCSharp
 {
     public class PerformStatementConverter : IStatementConverter
     {
-        public StatementType StatementType => StatementType.PERFORM;
+        public List<StatementType> StatementTypes => new List<StatementType>(new StatementType[] { StatementType.PERFORM });
 
         public string Convert(string Line, Paragraph Paragraph,List<Paragraph> Paragraphs)
         {

@@ -13,6 +13,7 @@ namespace CobolToCSharp
             Bind<IStatementConverter>().To<MoveStatementConverter>();
             Bind<IStatementConverter>().To<PerformStatementConverter>();
             Bind<IStatementConverter>().To<GoToStatementConverter>();
+            Bind<IStatementConverter>().To<IfStatementConverter>();
         }
     }
 }

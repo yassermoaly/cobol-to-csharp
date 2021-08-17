@@ -8,7 +8,7 @@ namespace CobolToCSharp
 {
     public interface IStatementConverter
     {
-        StatementType StatementType { get; }
+        List<StatementType> StatementTypes { get; }
         string Convert(string Line,Paragraph Paragraph,List<Paragraph> Paragraphs);
     }
 }

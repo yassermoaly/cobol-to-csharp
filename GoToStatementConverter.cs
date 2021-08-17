@@ -8,7 +8,7 @@ namespace CobolToCSharp
 {
     public class GoToStatementConverter : IStatementConverter
     {
-        public StatementType StatementType => StatementType.GOTO;
+        public List<StatementType> StatementTypes => new List<StatementType>(new StatementType[] { StatementType.GOTO});
 
         public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs)
         {
@@ -20,7 +20,7 @@ namespace CobolToCSharp
                 SB.AppendLine($"goto {NamingConverter.Convert(Tokens[2])}");
                 return SB.ToString();
             }
-            throw new Exception($"Invalid {StatementType.ToString()} Statement, {Line}");
+            throw new Exception($"Invalid {StatementTypes.First().ToString()} Statement, {Line}");
             
         }
     }

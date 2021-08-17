@@ -13,6 +13,8 @@ namespace CobolToCSharp
         IF,
         PERFORM,
         ELSE,
+        ELSE_IF,
+        END_IF,
         DISPLAY,
         ADD,
         SUBTRACT,
@@ -23,6 +25,9 @@ namespace CobolToCSharp
         GOTO,
         EXITPROGRAM,
         QUERY,
-        COMMENT
+        COMMENT,
+        BEGIN_BLOCK,
+        END_BLOCK,
+        END_PROGRAM
     }
 }

@@ -13,7 +13,7 @@ namespace CobolToCSharp
         {
             var kernel = new StandardKernel(new DependenciesModule());
             var IStatementConverters = kernel.Get<List<IStatementConverter>>();
-            return IStatementConverters.First(r => r.StatementType == Statement.StatementType);
+            return IStatementConverters.First(r => r.StatementTypes.Contains(Statement.StatementType));
         }
     }
 }
