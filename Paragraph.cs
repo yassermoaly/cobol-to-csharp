@@ -10,24 +10,24 @@ namespace CobolToCSharp
     public class Paragraph
     {
         #region Regex
-        private static Regex RegexGOTO = new Regex("^GO[ ]+TO");
-        private static Regex RegexEXECSQL = new Regex("^EXEC[ ]+SQL");
-        private static Regex RegexEXITPROGRAM = new Regex("^EXIT[ ]+PROGRAM");
-        private static Regex RegexMOVE = new Regex("^MOVE");
-        private static Regex RegexIF = new Regex("^IF");
-        private static Regex RegexPERFORM = new Regex("^PERFORM");
-        private static Regex RegexELSE = new Regex("^ELSE");
-        private static Regex RegexELSE_IF = new Regex("^ELSE IF");
-        private static Regex RegexEND_IF = new Regex("^END-IF");
-        private static Regex RegexDISPLAY = new Regex("^DISPLAY");
-        private static Regex RegexADD = new Regex("^ADD");
-        private static Regex RegexSUBTRACT = new Regex("^SUBTRACT");
-        private static Regex RegexCOMPUTE = new Regex("^COMPUTE");
-        private static Regex RegexDIVIDE = new Regex("^DIVIDE");
-        private static Regex RegexMULTIPLY = new Regex("^MULTIPLY");
-        private static Regex RegexCALL = new Regex("^CALL");
-        private static Regex RegexCOMMENT = new Regex(@"^\*");
-        private static Regex RegexENDPROGRAM = new Regex(@"^END[ ]+PROGRAM");
+        public static Regex RegexGOTO = new Regex("^GO[ ]+TO");
+        public static Regex RegexEXECSQL = new Regex("^EXEC[ ]+SQL");
+        public static Regex RegexEXITPROGRAM = new Regex("^EXIT[ ]+PROGRAM");
+        public static Regex RegexMOVE = new Regex("^MOVE");
+        public static Regex RegexIF = new Regex("^IF");
+        public static Regex RegexPERFORM = new Regex("^PERFORM");
+        public static Regex RegexELSE = new Regex("^ELSE");
+        public static Regex RegexELSE_IF = new Regex("^ELSE IF");
+        public static Regex RegexEND_IF = new Regex("^END-IF");
+        public static Regex RegexDISPLAY = new Regex("^DISPLAY");
+        public static Regex RegexADD = new Regex("^ADD");
+        public static Regex RegexSUBTRACT = new Regex("^SUBTRACT");
+        public static Regex RegexCOMPUTE = new Regex("^COMPUTE");
+        public static Regex RegexDIVIDE = new Regex("^DIVIDE");
+        public static Regex RegexMULTIPLY = new Regex("^MULTIPLY");
+        public static Regex RegexCALL = new Regex("^CALL");
+        public static Regex RegexCOMMENT = new Regex(@"^\*");
+        public static Regex RegexENDPROGRAM = new Regex(@"^END[ ]+PROGRAM");
 
         private static readonly Regex ParagraphRegex = new Regex(@"^[a-zA-Z0-9-_]+\.$");
         #endregion

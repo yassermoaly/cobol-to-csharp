@@ -30,7 +30,7 @@ namespace CobolToCSharp
         public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs)
         {
             //string[] Separators = new string[] { " "," OR ", " AND ", "=", "(", ")", "IF", "ELSE IF" };
-            Line = Line.Replace("IF", "if(").Replace("ELSE IF", "else if(").Replace("=", "==").Replace("AND", "&&").Replace("OR", "||");
+            Line = Line.Replace("IF", "if(").Replace("ELSE", "else").Replace("=", "==").Replace("AND", "&&").Replace("OR", "||");
             foreach (var item in CobolVariable.Matches(Line))
             {
                 Line = Line.Replace(item.ToString(), NamingConverter.Convert(item.ToString()));

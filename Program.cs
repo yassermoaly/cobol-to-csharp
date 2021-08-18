@@ -16,7 +16,9 @@ namespace CobolToCSharp
         static int numberOfConvertedLines = 0;
         #region Regex        
         private static Regex RegexCOMMENT = new Regex(@"^\*");
-        private static Regex RegexStatement = new Regex("^(MOVE|IF|ELSE[ ]+IF|END-IF|PERFORM|ELSE|DISPLAY|ADD|SUBTRACT|COMPUTE|CALL|DIVIDE|MULTIPLY|GO[ ]+TO|EXIT[ ]+PROGRAM|END[ ]+PROGRAM)");
+        private static string StringRegexStatement = "(MOVE|IF|ELSE[ ]+IF|END-IF|PERFORM|ELSE|DISPLAY|ADD|SUBTRACT|COMPUTE|CALL|DIVIDE|MULTIPLY|GO[ ]+TO|EXIT[ ]+PROGRAM|END[ ]+PROGRAM)";
+        private static Regex RegexStatement = new Regex($"^{StringRegexStatement}");
+        private static Regex RegexContainsStatement = new Regex($"{StringRegexStatement}");
         private static readonly Regex ParagraphRegex = new Regex(@"^[a-zA-Z0-9-_]+\.$");
         #endregion
 
@@ -109,7 +111,7 @@ namespace CobolToCSharp
             CSV.AppendLine("COBOL,C#");
             foreach (var Statement in Paragraph.Statements)
             {
-                if(Statement.StatementType == StatementType.IF)
+                if(Statement.StatementType == StatementType.QUERY)
                 {
                     CSV.AppendLine($"{Statement.Raw},{Statement.Converted}");
                     string C = Statement.Converted;
@@ -130,30 +132,43 @@ namespace CobolToCSharp
         private static void Process(string FilePath)
         {
             StringBuilder SBStatement = new StringBuilder();
-            string[] Lines = File.ReadAllLines(FilePath).Select(r => RemoveNumericsAtStart(r)).ToArray();
+            List<string> Lines = File.ReadAllLines(FilePath).Select(r => RemoveNumericsAtStart(r)).ToList();
             List<Paragraph> Paragraphs = new List<Paragraph>();
             bool CollectSQL = false;
             bool StartParse = false;
             int RowNum = 0;
             int StatementRowNum = 0;
-            foreach (var Line in Lines)
+            string Line = string.Empty;
+            for (int i = 0; i < Lines.Count; i++)
             {
-                RowNum++;           
+
+                
+                Line = Lines[i];
+
+                RowNum++;
                 if (!string.IsNullOrEmpty(Line))
                 {
                     if (Line.Equals("P-INITIAL."))
                     {
-                        StartParse = true;                       
+                        StartParse = true;
                     }
                     if (StartParse)
                     {
+                        MatchCollection Collection = RegexContainsStatement.Matches(Line);
+                        if (Collection.Count > 1)
+                        {                            
+                            Line = Lines[i].Substring(0, Collection[1].Index).Trim();                            
+                            Lines.Insert(i + 1, Lines[i].Substring(Collection[1].Index).Trim());
+                            Lines[i] = Line;
+                        }
+                        
                         if (CollectSQL)
                         {
                             SBStatement.Append(" ");
                             SBStatement.Append(Line);
                             if (Line.Equals("END-EXEC."))
                             {
-                                Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum);                               
+                                Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum);
                                 CollectSQL = false;
                             }
                             continue;
@@ -161,7 +176,7 @@ namespace CobolToCSharp
 
                         if (ParagraphRegex.IsMatch(Line))
                         {
-                            if(Paragraphs.Count>0)
+                            if (Paragraphs.Count > 0)
                                 Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum);
                             StatementRowNum = RowNum;
                             SBStatement = new StringBuilder();
@@ -173,22 +188,31 @@ namespace CobolToCSharp
                             continue;
                         }
                         else if (Line.Equals("EXEC SQL"))
-                        {                                                  
+                        {
                             Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum);
                             CollectSQL = true;
                             StatementRowNum = RowNum;
                             SBStatement = new StringBuilder();
-                            SBStatement.Append(Line);                            
+                            SBStatement.Append(Line);
                         }
                         else if (RegexCOMMENT.IsMatch(Line))
                         {
-                            Paragraphs.Last().AddStatement(SBStatement.ToString(), RowNum);                            
+                            Paragraphs.Last().AddStatement(SBStatement.ToString(), RowNum);
                         }
                         else if (RegexStatement.IsMatch(Line))
                         {
-                            Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum);
-                            StatementRowNum = RowNum;
-                            SBStatement = new StringBuilder(Line);
+                            if (Paragraph.RegexELSE.IsMatch(SBStatement.ToString()) && Paragraph.RegexIF.IsMatch(Line))
+                            {
+                                SBStatement.Append(" ");
+                                SBStatement.Append(Line);
+                            }
+                            else
+                            {
+                                Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum);
+                                StatementRowNum = RowNum;
+                                SBStatement = new StringBuilder(Line);
+                            }
+                            
                         }
                         else
                         {
@@ -198,6 +222,7 @@ namespace CobolToCSharp
                     }
                 }
             }
+            
 
             if (Paragraph.GetStatementType(SBStatement.ToString()) != StatementType.QUERY)
             {
