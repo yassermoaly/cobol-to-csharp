@@ -9,7 +9,7 @@ namespace CobolToCSharp
 {
     class Program
     {
-         private static readonly string FileName = "sc700.cbl";
+        private static readonly string FileName = "sc700.cbl";
         //private static readonly string FileName = "DEMO.cbl";
         //private static readonly string FileName = "small.cbl";
         private static int BlockCount = 0;
@@ -95,37 +95,34 @@ namespace CobolToCSharp
         }
         private static void ProcessParagraphs(List<Paragraph> Paragraphs)
         {
-            int i = 0;
-            numberOfConvertedLines = Paragraphs.Count;
-            foreach (var Paragraph in Paragraphs)
+            using (StreamWriter Writer=new StreamWriter("compare-result.log"))
             {
-                SetBlock(Paragraph);
-                ProcessParagraph(++i,Paragraph);
+                foreach (var Paragraph in Paragraphs)
+                {
+                    SetBlock(Paragraph);
+                    ProcessParagraph(Paragraph, Writer);
+                }
             }
+            
 
-            int x = 10;
         }
-        private static void ProcessParagraph(int Index,Paragraph Paragraph)
+        private static void ProcessParagraph(Paragraph Paragraph,StreamWriter Writer)
         {
-            StringBuilder CSV = new StringBuilder();
-            CSV.AppendLine("COBOL,C#");
             foreach (var Statement in Paragraph.Statements)
             {
                 if(Statement.StatementType == StatementType.QUERY)
                 {
-                    CSV.AppendLine($"{Statement.Raw},{Statement.Converted}");
-                    string C = Statement.Converted;
-                    numberOfConvertedLines++;
+                    if (!string.IsNullOrEmpty(Statement.Converted))
+                    {
+                        Writer.WriteLine("*************************************************************************");
+                        Writer.WriteLine("Raw:");
+                        Writer.WriteLine(Statement.Raw);
+                        Writer.WriteLine("-------------------------------------------------------------------------");
+                        Writer.WriteLine("Converted:");
+                        Writer.WriteLine(Statement.Converted);
+                    }                                     
                 }           
-            }
-            string DirectoryName = "IFStatements";
-            if (!Directory.Exists(DirectoryName))
-                Directory.CreateDirectory(DirectoryName);
-            using (StreamWriter Writer = new StreamWriter(@$"{DirectoryName}\{Index.ToString().PadLeft(3, '0')}-{Paragraph.Name}.csv"))
-            {
-                
-                Writer.Write(CSV);
-            }
+            }         
         }
         
         
