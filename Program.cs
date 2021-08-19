@@ -22,8 +22,19 @@ namespace CobolToCSharp
         private static readonly Regex ParagraphRegex = new Regex(@"^[a-zA-Z0-9-_]+\.$");
         #endregion
 
+        static void Start(ref List<object> FillInParameters)
+        {
+            for (int i = 0; i < FillInParameters.Count; i++)
+            {
+                object v = 100+i;
+                FillInParameters[i] = v;
+            }
+        }
         static void Main(string[] args)
         {
+            int x = 0, y = 5;
+            List<object> FillInParameters = new List<object>() { x, y };
+            Start(ref FillInParameters);
             DateTime SD = DateTime.Now;
             Console.WriteLine("Start Processing...");
             Process(FileName);
@@ -120,7 +131,7 @@ namespace CobolToCSharp
                         Writer.WriteLine("-------------------------------------------------------------------------");
                         Writer.WriteLine("Converted:");
                         Writer.WriteLine(Statement.Converted);
-                    }                                     
+                    }
                 }           
             }         
         }

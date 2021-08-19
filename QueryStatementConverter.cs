@@ -43,12 +43,14 @@ namespace CobolToCSharp
 
 
                 string[] FillParameters = FillParametersMatch.Value.Substring(4, FillParametersMatch.Value.Length - 8).Replace(":",string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries).Select(r=>r.Trim()).ToArray();
-
                 Match SelectParamatersMatch = new Regex("^SELECT.+FROM").Match(Line);
                 string[] SelectParameters = SelectParamatersMatch.Value.Substring(6, SelectParamatersMatch.Value.Length - 10).Split(',', StringSplitOptions.RemoveEmptyEntries).Select(r => r.Trim()).ToArray();
                 for (int h = 0; h < FillParameters.Length; h++)
-                {
-                    Query.AppendLine($"{FillParameters[h]} = DT.Rows[0][\"{SelectParameters[h]}\"];");
+                {                   
+                    if(new Regex("^[a-zA-Z][a-zA-Z0-9-]+$").IsMatch(SelectParameters[h]))
+                        Query.AppendLine($"{NamingConverter.Convert(FillParameters[h])} = DT.Rows[0][\"{SelectParameters[h]}\"];");
+                    else
+                        Query.AppendLine($"{NamingConverter.Convert(FillParameters[h])} = DT.Rows[0][\"{h}\"];");
                 }
                 return Query.ToString();
             }
