@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace CobolToCSharp
@@ -12,13 +13,15 @@ namespace CobolToCSharp
 
         public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs)
         {
-            string[] Tokens = Line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (Tokens.Length == 3)
+            if (new Regex("^GO[ ]+TO[ ]+[a-zA-Z0-9-]+").IsMatch(Line))
             {
-                StringBuilder SB = new StringBuilder();
-                SB.AppendLine("PerformStack.Clear();");
-                SB.AppendLine($"goto {NamingConverter.Convert(Tokens[2])}");
-                return SB.ToString();
+                string[] Tokens = Line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (Tokens.Length == 3)
+                {
+                    StringBuilder SB = new StringBuilder();
+                    SB.AppendLine($"return {NamingConverter.Convert(Tokens[2].Replace(".",string.Empty))}(false);");
+                    return SB.ToString();
+                }
             }
             throw new Exception($"Invalid {StatementTypes.First().ToString()} Statement, {Line}");
             

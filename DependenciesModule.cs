@@ -23,6 +23,15 @@ namespace CobolToCSharp
 
             Bind<IStatementConverter>().To<ADDStatementConverter>();
             Bind<IStatementConverter>().To<SUBTRACTStatementConverter>();
+            Bind<IStatementConverter>().To<MULTIPLYStatementConverter>();
+            Bind<IStatementConverter>().To<DIVIDEStatementConverter>();
+
+            Bind<IStatementConverter>().To<CALLStatementConverter>();
+            Bind<IStatementConverter>().To<DisplayStatementConverter>();
+
+            Bind<IStatementConverter>().To<EXITProgramStatementConverter>();
+
+
         }
     }
 }

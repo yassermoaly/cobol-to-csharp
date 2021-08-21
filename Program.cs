@@ -9,9 +9,9 @@ namespace CobolToCSharp
 {
     class Program
     {
-        private static readonly string FileName = "sc700.cbl";
+        //private static readonly string FileName = "sc700.cbl";
         //private static readonly string FileName = "DEMO.cbl";
-        //private static readonly string FileName = "small.cbl";
+        private static readonly string FileName = "small.cbl";
         private static int BlockCount = 0;
         static int numberOfConvertedLines = 0;
         #region Regex        
@@ -22,22 +22,12 @@ namespace CobolToCSharp
         private static readonly Regex ParagraphRegex = new Regex(@"^[a-zA-Z0-9-_]+\.$");
         #endregion
 
-        static void Start(ref List<object> FillInParameters)
-        {
-            for (int i = 0; i < FillInParameters.Count; i++)
-            {
-                object v = 100+i;
-                FillInParameters[i] = v;
-            }
-        }
+       
         static void Main(string[] args)
-        {
-            int x = 0, y = 5;
-            List<object> FillInParameters = new List<object>() { x, y };
-            Start(ref FillInParameters);
+        {                             
             DateTime SD = DateTime.Now;
             Console.WriteLine("Start Processing...");
-            Process(FileName);
+            Parse(FileName);
             Console.WriteLine($"Time Elapsed: {DateTime.Now.Subtract(SD).TotalMilliseconds} Milliseconds");
             Console.ReadLine();
         }
@@ -104,7 +94,7 @@ namespace CobolToCSharp
                 }
             }
         }
-        private static void ProcessParagraphs(List<Paragraph> Paragraphs)
+        private static void ConvertParagraphs(List<Paragraph> Paragraphs)
         {
             using (StreamWriter Writer=new StreamWriter("compare-result.log"))
             {
@@ -113,20 +103,19 @@ namespace CobolToCSharp
                     SetBlock(Paragraph);
                 }
                 foreach (var Paragraph in Paragraphs)
-                {                 
-                    ProcessParagraph(Paragraph,Writer);
+                {
+                    ConvertParagraph(Paragraph,Writer);
                 }
-            }
-            
-
+            }           
         }
-        private static void ProcessParagraph(Paragraph Paragraph,StreamWriter Writer)
+        private static void ConvertParagraph(Paragraph Paragraph,StreamWriter Writer)
         {
-            StatementType[] SupportedTypes = new StatementType[] { StatementType.MOVE, StatementType.BEGIN_BLOCK, StatementType.COMMENT, StatementType.ELSE, StatementType.ELSE_IF, StatementType.IF, StatementType.QUERY, StatementType.ADD, StatementType.SUBTRACT };
+            //StatementType[] SupportedTypes = new StatementType[] { StatementType.MOVE, StatementType.BEGIN_BLOCK, StatementType.COMMENT, StatementType.ELSE, StatementType.ELSE_IF, StatementType.IF, StatementType.QUERY, StatementType.ADD, StatementType.SUBTRACT,StatementType.MULTIPLY, StatementType.MULTIPLY,StatementType.DISPLAY, StatementType.CALL, StatementType. };
             foreach (var Statement in Paragraph.Statements)
             {
+                
                 //if(SupportedTypes.Contains(Statement.StatementType))
-                if (Statement.StatementType==StatementType.SUBTRACT)
+                if (Statement.StatementType==StatementType.PERFORM)
                 {
                     if (!string.IsNullOrEmpty(Statement.Converted))
                     {
@@ -142,7 +131,7 @@ namespace CobolToCSharp
         }
         
         
-        private static void Process(string FilePath)
+        private static void Parse(string FilePath)
         {
             StringBuilder SBStatement = new StringBuilder();
             List<string> Lines = File.ReadAllLines(FilePath).Select(r => RemoveNumericsAtStart(r)).ToList();
@@ -246,7 +235,7 @@ namespace CobolToCSharp
 
             Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum- addedLines);
            
-            ProcessParagraphs(Paragraphs);
+            ConvertParagraphs(Paragraphs);
 
         }       
     }
