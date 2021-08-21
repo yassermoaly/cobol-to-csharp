@@ -111,7 +111,10 @@ namespace CobolToCSharp
                 foreach (var Paragraph in Paragraphs)
                 {
                     SetBlock(Paragraph);
-                    ProcessParagraph(Paragraph, Writer);
+                }
+                foreach (var Paragraph in Paragraphs)
+                {                 
+                    ProcessParagraph(Paragraph,Writer);
                 }
             }
             
@@ -119,9 +122,11 @@ namespace CobolToCSharp
         }
         private static void ProcessParagraph(Paragraph Paragraph,StreamWriter Writer)
         {
+            StatementType[] SupportedTypes = new StatementType[] { StatementType.MOVE, StatementType.BEGIN_BLOCK, StatementType.COMMENT, StatementType.ELSE, StatementType.ELSE_IF, StatementType.IF, StatementType.QUERY, StatementType.ADD, StatementType.SUBTRACT };
             foreach (var Statement in Paragraph.Statements)
             {
-                if(Statement.StatementType == StatementType.QUERY)
+                //if(SupportedTypes.Contains(Statement.StatementType))
+                if (Statement.StatementType==StatementType.SUBTRACT)
                 {
                     if (!string.IsNullOrEmpty(Statement.Converted))
                     {
@@ -147,6 +152,7 @@ namespace CobolToCSharp
             int RowNum = 0;
             int StatementRowNum = 0;
             string Line = string.Empty;
+            int addedLines = 0;
             for (int i = 0; i < Lines.Count; i++)
             {
 
@@ -162,30 +168,37 @@ namespace CobolToCSharp
                     }
                     if (StartParse)
                     {
-                        MatchCollection Collection = RegexContainsStatement.Matches(Line);
-                        if (Collection.Count > 1)
-                        {                            
-                            Line = Lines[i].Substring(0, Collection[1].Index).Trim();                            
-                            Lines.Insert(i + 1, Lines[i].Substring(Collection[1].Index).Trim());
-                            Lines[i] = Line;
-                        }
+                        
                         
                         if (CollectSQL)
                         {
                             SBStatement.Append(" ");
                             SBStatement.Append(Line);
                             if (Line.Equals("END-EXEC."))
-                            {
-                                Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum);
+                            {                              
                                 CollectSQL = false;
                             }
                             continue;
                         }
+                        MatchCollection Collection = RegexContainsStatement.Matches(Line);
+                        if (Collection.Count > 1)
+                        {
+                            char PreChar = Line[Collection[1].Index - 1];
+                            char PostChar = Collection[1].Index + Collection[1].Length<Line.Length?Line[Collection[1].Index + Collection[1].Length]:'_';
+                            if ((PreChar == ' ' || PreChar == '.') && PostChar == ' ')
+                            {
+                                Line = Lines[i].Substring(0, Collection[1].Index).Trim();
+                                Lines.Insert(i + 1, Lines[i].Substring(Collection[1].Index).Trim());
+                                Lines[i] = Line;
+                                addedLines++;
+                            }
 
+                            
+                        }
                         if (ParagraphRegex.IsMatch(Line))
                         {
                             if (Paragraphs.Count > 0)
-                                Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum);
+                                Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum - addedLines);
                             StatementRowNum = RowNum;
                             SBStatement = new StringBuilder();
                             Paragraphs.Add(new Paragraph()
@@ -197,7 +210,7 @@ namespace CobolToCSharp
                         }
                         else if (Line.Equals("EXEC SQL"))
                         {
-                            Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum);
+                            Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum- addedLines);
                             CollectSQL = true;
                             StatementRowNum = RowNum;
                             SBStatement = new StringBuilder();
@@ -205,7 +218,7 @@ namespace CobolToCSharp
                         }
                         else if (RegexCOMMENT.IsMatch(Line))
                         {
-                            Paragraphs.Last().AddStatement(SBStatement.ToString(), RowNum);
+                            Paragraphs.Last().AddStatement(SBStatement.ToString(), RowNum- addedLines);
                         }
                         else if (RegexStatement.IsMatch(Line))
                         {
@@ -216,7 +229,7 @@ namespace CobolToCSharp
                             }
                             else
                             {
-                                Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum);
+                                Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum- addedLines);
                                 StatementRowNum = RowNum;
                                 SBStatement = new StringBuilder(Line);
                             }
@@ -230,12 +243,9 @@ namespace CobolToCSharp
                     }
                 }
             }
-            
 
-            if (Paragraph.GetStatementType(SBStatement.ToString()) != StatementType.QUERY)
-            {
-                Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum);
-            }
+            Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum- addedLines);
+           
             ProcessParagraphs(Paragraphs);
 
         }       

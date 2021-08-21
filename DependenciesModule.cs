@@ -15,6 +15,14 @@ namespace CobolToCSharp
             Bind<IStatementConverter>().To<GoToStatementConverter>();
             Bind<IStatementConverter>().To<IfStatementConverter>();
             Bind<IStatementConverter>().To<QueryStatementConverter>();
+
+            Bind<IStatementConverter>().To<CommentStatementConverter>();
+            Bind<IStatementConverter>().To<ElseStatementConverter>();
+            Bind<IStatementConverter>().To<BeginBlockStatementConverter>();
+            Bind<IStatementConverter>().To<EndBlockStatementConverter>();
+
+            Bind<IStatementConverter>().To<ADDStatementConverter>();
+            Bind<IStatementConverter>().To<SUBTRACTStatementConverter>();
         }
     }
 }

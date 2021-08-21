@@ -11,11 +11,14 @@ namespace CobolToCSharp
         public Paragraph Paragraph { get; set; }
         public List<Paragraph> Paragraphs { get; set; }
         public string Raw { get; set; }
+        private string _Converted { get; set; }
         public string Converted
         {
             get
             {
-               return StatementConverterFactory.CreateInstance(this).Convert(Raw, Paragraph, Paragraphs);
+                if(string.IsNullOrEmpty(_Converted))
+                    _Converted = StatementConverterFactory.CreateInstance(this).Convert(Raw, Paragraph, Paragraphs);
+                return _Converted;
             }
         }
         public int RowNo { get; set; }
