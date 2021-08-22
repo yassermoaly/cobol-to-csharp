@@ -36,7 +36,19 @@ namespace CobolToCSharp
         {
             Statements = new List<Statement>();          
         }
-        public string Name { get; set; }
+
+        private string _Name;
+        public string Name
+        {
+            get
+            {
+                return _Name.Replace(".",string.Empty);
+            }
+            set
+            {
+                _Name = value;
+            }
+        }
        
         public List<Statement> Statements { get; set; }
 

@@ -66,9 +66,9 @@ namespace CobolToCSharp
                 for (int h = 0; h < FillParameters.Length; h++)
                 {                   
                     if(new Regex("^[a-zA-Z][a-zA-Z0-9-]+$").IsMatch(SelectParameters[h]))
-                        Query.AppendLine($"{NamingConverter.Convert(FillParameters[h])} = DT.Rows[0][\"{SelectParameters[h]}\"];");
+                        Query.AppendLine($"{NamingConverter.Convert(FillParameters[h].Replace("@",string.Empty))} = DT.Rows[0][\"{SelectParameters[h]}\"];");
                     else
-                        Query.AppendLine($"{NamingConverter.Convert(FillParameters[h])} = DT.Rows[0][\"{h}\"];");
+                        Query.AppendLine($"{NamingConverter.Convert(FillParameters[h].Replace("@", string.Empty))} = DT.Rows[0][\"{h}\"];");
                 }
                 return Query.ToString();
             }
@@ -102,9 +102,9 @@ namespace CobolToCSharp
                 for (int h = 0; h < FillParameters.Length; h++)
                 {
                     if (new Regex("^[a-zA-Z][a-zA-Z0-9-]+$").IsMatch(SelectParameters[h]))
-                        Query.AppendLine($"{NamingConverter.Convert(FillParameters[h])} = {CursorName}_DR[\"{SelectParameters[h]}\"];");
+                        Query.AppendLine($"{NamingConverter.Convert(FillParameters[h].Replace("@", string.Empty))} = {CursorName}_DR[\"{SelectParameters[h]}\"];");
                     else
-                        Query.AppendLine($"{NamingConverter.Convert(FillParameters[h])} = {CursorName}_DR[\"{h}\"];");
+                        Query.AppendLine($"{NamingConverter.Convert(FillParameters[h].Replace("@", string.Empty))} = {CursorName}_DR[\"{h}\"];");
                 }
 
                 return Query.ToString();

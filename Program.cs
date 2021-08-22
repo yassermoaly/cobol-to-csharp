@@ -9,9 +9,11 @@ namespace CobolToCSharp
 {
     class Program
     {
-        //private static readonly string FileName = "sc700.cbl";
+        private static readonly string FileName = "sc700.cbl";
+        private static readonly string NameSpace = "OSS_Domain";
+
         //private static readonly string FileName = "DEMO.cbl";
-        private static readonly string FileName = "small.cbl";
+        //private static readonly string FileName = "small.cbl";
         private static int BlockCount = 0;
         static int numberOfConvertedLines = 0;
         #region Regex        
@@ -96,37 +98,73 @@ namespace CobolToCSharp
         }
         private static void ConvertParagraphs(List<Paragraph> Paragraphs)
         {
-            using (StreamWriter Writer=new StreamWriter("compare-result.log"))
+            foreach (var Paragraph in Paragraphs)
             {
-                foreach (var Paragraph in Paragraphs)
+                SetBlock(Paragraph);
+            }
+            string ClassName = FileName.Replace(".cbl", string.Empty);
+            using (StreamWriter CodeWriter = new StreamWriter($"{ClassName}.cs"))
+            {
+                CodeWriter.WriteLine($"using System;");
+                CodeWriter.WriteLine($"using System.Collections.Generic;");
+                CodeWriter.WriteLine($"using System.Linq;");
+                CodeWriter.WriteLine($"using System.Text;");
+                CodeWriter.WriteLine($"using System.Threading.Tasks;");
+                CodeWriter.WriteLine($"namespace {NameSpace}");
+                CodeWriter.WriteLine("{");
+                CodeWriter.WriteLine($"    public class {ClassName} : BaseBusiness {{");                                
+                using (StreamWriter LogWriter = new StreamWriter("compare-result.log"))
                 {
-                    SetBlock(Paragraph);
+                    for (int i = 0; i < Paragraphs.Count; i++)
+                    {
+                        var Paragraph = Paragraphs[i];
+                        CodeWriter.WriteLine($"        public bool {NamingConverter.Convert(Paragraph.Name)}(bool ReturnBack){{");
+                        ConvertParagraph(Paragraph, LogWriter,CodeWriter);
+                        if(i+1< Paragraphs.Count)
+                            CodeWriter.WriteLine($"            return ReturnBack && {NamingConverter.Convert(Paragraphs[i+1].Name)}(true);");
+                        else
+                            CodeWriter.WriteLine($"            return ReturnBack;");
+                        CodeWriter.WriteLine($"        }}");
+                    }                    
                 }
-                foreach (var Paragraph in Paragraphs)
-                {
-                    ConvertParagraph(Paragraph,Writer);
-                }
-            }           
+                CodeWriter.Write($"        }}");
+                CodeWriter.Write($"    }}");
+            }
         }
-        private static void ConvertParagraph(Paragraph Paragraph,StreamWriter Writer)
+        private static void ConvertParagraph(Paragraph Paragraph,StreamWriter LogWriter, StreamWriter CodeWriter)
         {
+            int TAP_Level = 3;
+            string TAP = "    ";
             //StatementType[] SupportedTypes = new StatementType[] { StatementType.MOVE, StatementType.BEGIN_BLOCK, StatementType.COMMENT, StatementType.ELSE, StatementType.ELSE_IF, StatementType.IF, StatementType.QUERY, StatementType.ADD, StatementType.SUBTRACT,StatementType.MULTIPLY, StatementType.MULTIPLY,StatementType.DISPLAY, StatementType.CALL, StatementType. };
             foreach (var Statement in Paragraph.Statements)
             {
                 
-                //if(SupportedTypes.Contains(Statement.StatementType))
-                if (Statement.StatementType==StatementType.PERFORM)
+                if (!string.IsNullOrEmpty(Statement.Converted))
                 {
-                    if (!string.IsNullOrEmpty(Statement.Converted))
+                    if (Statement.StatementType == StatementType.END_BLOCK)
+                        TAP_Level--;
+                    StringBuilder SB = new StringBuilder();
+                    string TAPSPACES = string.Empty;
+                    for (int i = 0; i < TAP_Level; i++)
                     {
-                        Writer.WriteLine("*************************************************************************");
-                        Writer.WriteLine("Raw:");
-                        Writer.WriteLine(Statement.Raw);
-                        Writer.WriteLine("-------------------------------------------------------------------------");
-                        Writer.WriteLine("Converted:");
-                        Writer.WriteLine(Statement.Converted);
+                        TAPSPACES += "    ";
                     }
-                }           
+
+
+                    SB.Append(Statement.Converted);
+                    if (Statement.StatementType == StatementType.BEGIN_BLOCK)
+                        TAP_Level++;
+
+                    
+                    CodeWriter.WriteLine($"{TAPSPACES}{SB.ToString().Replace("\r\n", $"\r\n{TAPSPACES}")}");
+
+                    LogWriter.WriteLine("*************************************************************************");
+                    LogWriter.WriteLine("Raw:");
+                    LogWriter.WriteLine(Statement.Raw);
+                    LogWriter.WriteLine("-------------------------------------------------------------------------");
+                    LogWriter.WriteLine("Converted:");
+                    LogWriter.WriteLine(Statement.Converted);
+                }
             }         
         }
         
