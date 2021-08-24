@@ -25,7 +25,7 @@ namespace CobolToCSharp
             get
             {
                 if(string.IsNullOrEmpty(_RawWithoutLevel) && !string.IsNullOrEmpty(Raw))
-                    _RawWithoutLevel =  new Regex(@"^[\d ]+").Replace(Raw, string.Empty).Trim();
+                    _RawWithoutLevel =  new Regex(@"^[\d/ ]+").Replace(Raw, string.Empty).Trim();
 
                 return _RawWithoutLevel;
             }

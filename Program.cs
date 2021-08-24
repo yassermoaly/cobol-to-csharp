@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using System.Linq;
 using System.Collections.Generic;
 using System.Text;
+using Microsoft.Extensions.Configuration;
 
 namespace CobolToCSharp
 {
@@ -16,13 +17,22 @@ namespace CobolToCSharp
     }
     class Program
     {
+        static IConfigurationRoot config;
+        static Program()
+        {
+            var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+            var builder = new ConfigurationBuilder()
+                .AddJsonFile($"appsettings.json", true, true)
+                .AddJsonFile($"appsettings.{env}.json", true, true)
+                .AddEnvironmentVariables();
+            config = builder.Build();
+        }
         private static readonly string FileName = "sc700.cbl";
         private static readonly string NameSpace = "OSS_Domain";
-
+     
         //private static readonly string FileName = "DEMO.cbl";
         //private static readonly string FileName = "small.cbl";
         private static int BlockCount = 0;
-        static int numberOfConvertedLines = 0;
         #region Regex        
         private static Regex RegexCOMMENT = new Regex(@"^\*");
         private static string StringRegexStatement = "(MOVE|IF|ELSE[ ]+IF|END-IF|PERFORM|ELSE|DISPLAY|ADD|SUBTRACT|COMPUTE|CALL|DIVIDE|MULTIPLY|GO[ ]+TO|EXIT[ ]+PROGRAM|END[ ]+PROGRAM)";
@@ -31,9 +41,9 @@ namespace CobolToCSharp
         private static readonly Regex ParagraphRegex = new Regex(@"^[a-zA-Z0-9-_]+\.$");
         #endregion
 
-       
+        
         static void Main(string[] args)
-        {                             
+        {           
             DateTime SD = DateTime.Now;
             Console.WriteLine("Start Processing...");
             Parse(FileName);
@@ -188,55 +198,64 @@ namespace CobolToCSharp
                 DisplayName(item);
             }
         }
+
+
         private static void Parse(string FilePath)
         {
+
+
             StringBuilder SBStatement = new StringBuilder();
             List<string> Lines = File.ReadAllLines(FilePath).ToList();
             List<Paragraph> Paragraphs = new List<Paragraph>();
-            bool CollectSQL = false;
-            bool StartParse = false;
+            bool CollectSQL = false;           
             int RowNum = 0;
             int StatementRowNum = 0;
             string Line = string.Empty;
             int addedLines = 0;
             ParseMode ParseMode = ParseMode.NONE;
 
-            CobolVariable WORKING_STORAGE_VARIABLES = new CobolVariable();
+            CobolVariable WORKING_STORAGE_VARIABLE = new CobolVariable();
             CobolVariable CurrentVariable = new CobolVariable();
-            List<string> LINKAGE_SECTION = new List<string>();
+            CobolVariable LINKAGE_SECTION_VARIABLE = new CobolVariable();
             int? PreLevel = null;
             int? Level = null;
             int? ActualLevel = null;
             for (int i = 0; i < Lines.Count; i++)
             {                
                 Line = Lines[i];
-                RowNum++;
                 if (!string.IsNullOrEmpty(Line))
                 {
                     if (Line.Contains("WORKING-STORAGE SECTION."))
                     {
                         ParseMode = ParseMode.COLLECT_WORKING_STORAGE_SECTION;
-                        CurrentVariable = WORKING_STORAGE_VARIABLES;
+                        PreLevel = null;
                         continue;
                     }
                     else if(Line.Contains("LINKAGE SECTION."))
                     {
                         ParseMode = ParseMode.COLLECT_LINKAGE_SECTION;
+                        PreLevel = null;
                         continue;
                     }
-                    else if (Line.Contains("P-INITIAL."))
+                    else if (Line.Contains("PROCEDURE DIVISION USING"))
+                    {
+                        
+                        if(string.IsNullOrEmpty(config["ProcedureDivisionEntryParagraph"]))
+                            ParseMode = ParseMode.COLLECT_PROCEDURE_DIVISION;
+                        else
+                            ParseMode = ParseMode.NONE;
+                        continue;
+                    }
+                    else if (!string.IsNullOrEmpty(config["ProcedureDivisionEntryParagraph"]) && Line.Contains(config["ProcedureDivisionEntryParagraph"]))
                     {
                         ParseMode = ParseMode.COLLECT_PROCEDURE_DIVISION;
                     }
                     switch (ParseMode)
                     {         
                         case CobolToCSharp.ParseMode.COLLECT_WORKING_STORAGE_SECTION:
+                        case CobolToCSharp.ParseMode.COLLECT_LINKAGE_SECTION:
                             if (!string.IsNullOrEmpty(Line.Trim()))
-                            {
-                                if(RowNum==352)
-                                {
-                                    int i123 = 129;
-                                }
+                            {                               
                                 if (CollectSQL)
                                 {
                                     if (new Regex("END-EXEC").IsMatch(Line))
@@ -270,7 +289,15 @@ namespace CobolToCSharp
                                         if (PreLevel == null)
                                         {
                                             ActualLevel = 1;
-                                            CurrentVariable = WORKING_STORAGE_VARIABLES;
+                                            switch (ParseMode)
+                                            {
+                                                case CobolToCSharp.ParseMode.COLLECT_WORKING_STORAGE_SECTION:
+                                                    CurrentVariable = WORKING_STORAGE_VARIABLE;
+                                                    break;
+                                                case CobolToCSharp.ParseMode.COLLECT_LINKAGE_SECTION:
+                                                    CurrentVariable = LINKAGE_SECTION_VARIABLE;
+                                                    break;                                                
+                                            }                                            
                                         }
                                         else if (Level > PreLevel)
                                         {
@@ -298,10 +325,7 @@ namespace CobolToCSharp
 
 
                             int x = 10;
-                            break;
-                        case CobolToCSharp.ParseMode.COLLECT_LINKAGE_SECTION:
-                            LINKAGE_SECTION.Add(Line);
-                            break;
+                            break;                      
                         case CobolToCSharp.ParseMode.COLLECT_PROCEDURE_DIVISION:
                             Line = RemoveNumericsAtStart(Line);
                             if (CollectSQL)
@@ -379,7 +403,7 @@ namespace CobolToCSharp
                 }
             }
 
-            DisplayName(WORKING_STORAGE_VARIABLES);
+            DisplayName(LINKAGE_SECTION_VARIABLE);
 
             Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum- addedLines);
            
