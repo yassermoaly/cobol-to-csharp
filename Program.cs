@@ -7,6 +7,13 @@ using System.Text;
 
 namespace CobolToCSharp
 {
+    enum ParseMode
+    {
+        NONE,
+        COLLECT_WORKING_STORAGE_SECTION,
+        COLLECT_LINKAGE_SECTION,
+        COLLECT_PROCEDURE_DIVISION
+    }
     class Program
     {
         private static readonly string FileName = "sc700.cbl";
@@ -147,7 +154,7 @@ namespace CobolToCSharp
                     string TAPSPACES = string.Empty;
                     for (int i = 0; i < TAP_Level; i++)
                     {
-                        TAPSPACES += "    ";
+                        TAPSPACES += TAP;
                     }
 
 
@@ -168,11 +175,23 @@ namespace CobolToCSharp
             }         
         }
         
-        
+        private static int GetLevel(string s)
+        {
+            return int.Parse(new Regex(@"\d+[ ]+[a-zA-Z]+").Matches($" {s}").First().Value.Split(' ',StringSplitOptions.RemoveEmptyEntries).First());
+        }
+
+        private static void DisplayName(CobolVariable Variable)
+        {
+            Console.WriteLine(Variable.ToString());
+            foreach (var item in Variable.Childs)
+            {
+                DisplayName(item);
+            }
+        }
         private static void Parse(string FilePath)
         {
             StringBuilder SBStatement = new StringBuilder();
-            List<string> Lines = File.ReadAllLines(FilePath).Select(r => RemoveNumericsAtStart(r)).ToList();
+            List<string> Lines = File.ReadAllLines(FilePath).ToList();
             List<Paragraph> Paragraphs = new List<Paragraph>();
             bool CollectSQL = false;
             bool StartParse = false;
@@ -180,101 +199,192 @@ namespace CobolToCSharp
             int StatementRowNum = 0;
             string Line = string.Empty;
             int addedLines = 0;
+            ParseMode ParseMode = ParseMode.NONE;
+
+            CobolVariable WORKING_STORAGE_VARIABLES = new CobolVariable();
+            CobolVariable CurrentVariable = new CobolVariable();
+            List<string> LINKAGE_SECTION = new List<string>();
+            int? PreLevel = null;
+            int? Level = null;
+            int? ActualLevel = null;
             for (int i = 0; i < Lines.Count; i++)
-            {
-
-                
+            {                
                 Line = Lines[i];
-
                 RowNum++;
                 if (!string.IsNullOrEmpty(Line))
                 {
-                    if (Line.Equals("P-INITIAL."))
+                    if (Line.Contains("WORKING-STORAGE SECTION."))
                     {
-                        StartParse = true;
+                        ParseMode = ParseMode.COLLECT_WORKING_STORAGE_SECTION;
+                        CurrentVariable = WORKING_STORAGE_VARIABLES;
+                        continue;
                     }
-                    if (StartParse)
+                    else if(Line.Contains("LINKAGE SECTION."))
                     {
-                        
-                        
-                        if (CollectSQL)
-                        {
-                            SBStatement.Append(" ");
-                            SBStatement.Append(Line);
-                            if (Line.Equals("END-EXEC."))
-                            {                              
-                                CollectSQL = false;
-                            }
-                            continue;
-                        }
-                        MatchCollection Collection = RegexContainsStatement.Matches(Line);
-                        if (Collection.Count > 1)
-                        {
-                            char PreChar = Line[Collection[1].Index - 1];
-                            char PostChar = Collection[1].Index + Collection[1].Length<Line.Length?Line[Collection[1].Index + Collection[1].Length]:'_';
-                            if ((PreChar == ' ' || PreChar == '.') && PostChar == ' ')
+                        ParseMode = ParseMode.COLLECT_LINKAGE_SECTION;
+                        continue;
+                    }
+                    else if (Line.Contains("P-INITIAL."))
+                    {
+                        ParseMode = ParseMode.COLLECT_PROCEDURE_DIVISION;
+                    }
+                    switch (ParseMode)
+                    {         
+                        case CobolToCSharp.ParseMode.COLLECT_WORKING_STORAGE_SECTION:
+                            if (!string.IsNullOrEmpty(Line.Trim()))
                             {
-                                Line = Lines[i].Substring(0, Collection[1].Index).Trim();
-                                Lines.Insert(i + 1, Lines[i].Substring(Collection[1].Index).Trim());
-                                Lines[i] = Line;
-                                addedLines++;
+                                if(RowNum==352)
+                                {
+                                    int i123 = 129;
+                                }
+                                if (CollectSQL)
+                                {
+                                    if (new Regex("END-EXEC").IsMatch(Line))
+                                    {
+                                        CollectSQL = false;
+                                        continue;
+                                    }
+                                    continue;
+                                }
+                                if(new Regex("EXEC SQL.+END-EXEC").IsMatch(Line))
+                                {
+                                    continue;
+                                }
+                                else if(new Regex("EXEC SQL").IsMatch(Line))
+                                {
+                                    CollectSQL = true;
+                                    continue;
+                                }
+
+                                if (RegexCOMMENT.IsMatch(Line)) continue;
+
+                                if (SBStatement.Length > 0)
+                                    SBStatement.Append(" ");
+                                SBStatement.Append(Line);
+                                if (SBStatement.ToString().Trim().EndsWith("."))
+                                {
+                                    
+                                    Level = GetLevel(SBStatement.ToString());
+                                    if (Level != 66 && Level != 77 && Level != 88)
+                                    {
+                                        if (PreLevel == null)
+                                        {
+                                            ActualLevel = 1;
+                                            CurrentVariable = WORKING_STORAGE_VARIABLES;
+                                        }
+                                        else if (Level > PreLevel)
+                                        {
+                                            ActualLevel++;
+                                            CurrentVariable = CurrentVariable.Childs.Last();
+                                        }
+                                        else if (Level < PreLevel)
+                                        {
+                                            ActualLevel--;
+                                            CurrentVariable = CurrentVariable.Parent;
+                                        }
+
+                                        PreLevel = Level;
+                                    }
+                                    CurrentVariable.Childs.Add(new CobolVariable()
+                                    {
+                                        Parent = CurrentVariable,
+                                        Raw = SBStatement.ToString(),
+                                        Level = ActualLevel.Value,
+                                        RowNumber = RowNum-1
+                                    });
+                                    SBStatement = new StringBuilder();
+                                }
                             }
 
-                            
-                        }
-                        if (ParagraphRegex.IsMatch(Line))
-                        {
-                            if (Paragraphs.Count > 0)
-                                Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum - addedLines);
-                            StatementRowNum = RowNum;
-                            SBStatement = new StringBuilder();
-                            Paragraphs.Add(new Paragraph()
+
+                            int x = 10;
+                            break;
+                        case CobolToCSharp.ParseMode.COLLECT_LINKAGE_SECTION:
+                            LINKAGE_SECTION.Add(Line);
+                            break;
+                        case CobolToCSharp.ParseMode.COLLECT_PROCEDURE_DIVISION:
+                            Line = RemoveNumericsAtStart(Line);
+                            if (CollectSQL)
                             {
-                                Name = Line,
-                                Paragraphs = Paragraphs
-                            });
-                            continue;
-                        }
-                        else if (Line.Equals("EXEC SQL"))
-                        {
-                            Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum- addedLines);
-                            CollectSQL = true;
-                            StatementRowNum = RowNum;
-                            SBStatement = new StringBuilder();
-                            SBStatement.Append(Line);
-                        }
-                        else if (RegexCOMMENT.IsMatch(Line))
-                        {
-                            Paragraphs.Last().AddStatement(SBStatement.ToString(), RowNum- addedLines);
-                        }
-                        else if (RegexStatement.IsMatch(Line))
-                        {
-                            if (Paragraph.RegexELSE.IsMatch(SBStatement.ToString()) && Paragraph.RegexIF.IsMatch(Line))
+                                SBStatement.Append(" ");
+                                SBStatement.Append(Line);
+                                if (Line.Equals("END-EXEC."))
+                                {
+                                    CollectSQL = false;
+                                }
+                                continue;
+                            }
+                            MatchCollection Collection = RegexContainsStatement.Matches(Line);
+                            if (Collection.Count > 1)
+                            {
+                                char PreChar = Line[Collection[1].Index - 1];
+                                char PostChar = Collection[1].Index + Collection[1].Length < Line.Length ? Line[Collection[1].Index + Collection[1].Length] : '_';
+                                if ((PreChar == ' ' || PreChar == '.') && PostChar == ' ')
+                                {
+                                    Line = Lines[i].Substring(0, Collection[1].Index).Trim();
+                                    Lines.Insert(i + 1, Lines[i].Substring(Collection[1].Index).Trim());
+                                    Lines[i] = Line;
+                                    addedLines++;
+                                }
+
+
+                            }
+                            if (ParagraphRegex.IsMatch(Line))
+                            {
+                                if (Paragraphs.Count > 0)
+                                    Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum - addedLines);
+                                StatementRowNum = RowNum;
+                                SBStatement = new StringBuilder();
+                                Paragraphs.Add(new Paragraph()
+                                {
+                                    Name = Line,
+                                    Paragraphs = Paragraphs
+                                });
+                                continue;
+                            }
+                            else if (Line.Equals("EXEC SQL"))
+                            {
+                                Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum - addedLines);
+                                CollectSQL = true;
+                                StatementRowNum = RowNum;
+                                SBStatement = new StringBuilder();
+                                SBStatement.Append(Line);
+                            }
+                            else if (RegexCOMMENT.IsMatch(Line))
+                            {
+                                Paragraphs.Last().AddStatement(SBStatement.ToString(), RowNum - addedLines);
+                            }
+                            else if (RegexStatement.IsMatch(Line))
+                            {
+                                if (Paragraph.RegexELSE.IsMatch(SBStatement.ToString()) && Paragraph.RegexIF.IsMatch(Line))
+                                {
+                                    SBStatement.Append(" ");
+                                    SBStatement.Append(Line);
+                                }
+                                else
+                                {
+                                    Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum - addedLines);
+                                    StatementRowNum = RowNum;
+                                    SBStatement = new StringBuilder(Line);
+                                }
+
+                            }
+                            else
                             {
                                 SBStatement.Append(" ");
                                 SBStatement.Append(Line);
                             }
-                            else
-                            {
-                                Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum- addedLines);
-                                StatementRowNum = RowNum;
-                                SBStatement = new StringBuilder(Line);
-                            }
-                            
-                        }
-                        else
-                        {
-                            SBStatement.Append(" ");
-                            SBStatement.Append(Line);
-                        }
-                    }
+                            break;                        
+                    }                   
                 }
             }
+
+            DisplayName(WORKING_STORAGE_VARIABLES);
 
             Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum- addedLines);
            
             ConvertParagraphs(Paragraphs);
 
-        }       
+        }
     }
 }
