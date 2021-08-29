@@ -10,7 +10,7 @@ namespace CobolToCSharp
     class IfStatementConverter : IStatementConverter
     {
         public List<StatementType> StatementTypes => new List<StatementType>(new StatementType[] { StatementType.IF, StatementType.ELSE_IF });
-        private readonly Regex CobolVariable = new Regex("[a-zA-Z]+[-][a-zA-Z0-9-]*");
+        private readonly Regex CobolVariable = new Regex("[a-zA-Z][a-zA-Z0-9]*[-][a-zA-Z0-9-]*");
         private string[] SpecialSplit(string Line,string[] Separators)
         {
             List<string> result = new List<string>();

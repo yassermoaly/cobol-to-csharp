@@ -28,7 +28,6 @@ namespace CobolToCSharp
         public static Regex RegexCALL = new Regex("^CALL");
         public static Regex RegexCOMMENT = new Regex(@"^\*");
         public static Regex RegexENDPROGRAM = new Regex(@"^END[ ]+PROGRAM");
-
         private static readonly Regex ParagraphRegex = new Regex(@"^[a-zA-Z0-9-_]+\.$");
         #endregion
         public List<Paragraph> Paragraphs { get; set; }

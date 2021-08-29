@@ -135,7 +135,8 @@ namespace CobolToCSharp
                     for (int i = 0; i < Paragraphs.Count; i++)
                     {
                         var Paragraph = Paragraphs[i];
-                        CodeWriter.WriteLine($"        public bool {NamingConverter.Convert(Paragraph.Name)}(bool ReturnBack){{");
+                        CodeWriter.WriteLine($"        public bool {NamingConverter.Convert(Paragraph.Name)}(bool ReturnBack)");
+                        CodeWriter.WriteLine($"        {{");
                         bool LastStatementIsReturn = false;
                         ConvertParagraph(Paragraph, LogWriter,CodeWriter,out LastStatementIsReturn);
                         if (!LastStatementIsReturn)
@@ -232,7 +233,6 @@ namespace CobolToCSharp
         private static void Parse(string FilePath)
         {
 
-
             StringBuilder SBStatement = new StringBuilder();
             List<string> Lines = File.ReadAllLines(FilePath).ToList();
             List<Paragraph> Paragraphs = new List<Paragraph>();
@@ -250,7 +250,7 @@ namespace CobolToCSharp
             int? Level = null;
             int? ActualLevel = null;
             for (int i = 0; i < Lines.Count; i++)
-            {                
+            {               
                 Line = Lines[i];
                 if (!string.IsNullOrEmpty(Line))
                 {
@@ -395,7 +395,7 @@ namespace CobolToCSharp
                                 });
                                 continue;
                             }
-                            else if (Line.Equals("EXEC SQL"))
+                            else if (Paragraph.RegexEXECSQL.IsMatch(Line))
                             {
                                 Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum - addedLines);
                                 CollectSQL = true;
