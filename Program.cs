@@ -55,11 +55,11 @@ namespace CobolToCSharp
             Regex rgx = new Regex(@"^\d+");
             return rgx.Replace(s, string.Empty).Trim();
         }
-        private static void SetBlock(Paragraph Paragraph)
+        private static void SetBlocks(Paragraph Paragraph)
         {
             for (int i = 0; i < Paragraph.Statements.Count; i++)
             {
-                var Statement = Paragraph.Statements[i];
+                var Statement = Paragraph.Statements[i];                
                 switch (Statement.StatementType)
                 {
                     case StatementType.IF:
@@ -93,7 +93,7 @@ namespace CobolToCSharp
                         BlockCount--;
                         break;
                     default:
-                        if (Statement.Raw.EndsWith('.'))
+                        if (Statement.Raw.Trim().EndsWith('.'))
                         {   
                             int counter = 0;
                             while (BlockCount > 0)
@@ -117,7 +117,7 @@ namespace CobolToCSharp
         {
             foreach (var Paragraph in Paragraphs)
             {
-                SetBlock(Paragraph);
+                SetBlocks(Paragraph);
             }
             string ClassName = FileName.Replace(".cbl", string.Empty);
             using (StreamWriter CodeWriter = new StreamWriter($"{ClassName}.cs"))
@@ -129,34 +129,39 @@ namespace CobolToCSharp
                 CodeWriter.WriteLine($"using System.Threading.Tasks;");
                 CodeWriter.WriteLine($"namespace {NameSpace}");
                 CodeWriter.WriteLine("{");
-                CodeWriter.WriteLine($"    public class {ClassName} : BaseBusiness {{");                                
+                CodeWriter.WriteLine($"    public class {ClassName} : {ClassName}Variables {{");                                
                 using (StreamWriter LogWriter = new StreamWriter("compare-result.log"))
                 {
                     for (int i = 0; i < Paragraphs.Count; i++)
                     {
                         var Paragraph = Paragraphs[i];
                         CodeWriter.WriteLine($"        public bool {NamingConverter.Convert(Paragraph.Name)}(bool ReturnBack){{");
-                        ConvertParagraph(Paragraph, LogWriter,CodeWriter);
-                        if(i+1< Paragraphs.Count)
-                            CodeWriter.WriteLine($"            return ReturnBack && {NamingConverter.Convert(Paragraphs[i+1].Name)}(true);");
-                        else
-                            CodeWriter.WriteLine($"            return ReturnBack;");
+                        bool LastStatementIsReturn = false;
+                        ConvertParagraph(Paragraph, LogWriter,CodeWriter,out LastStatementIsReturn);
+                        if (!LastStatementIsReturn)
+                        {
+                            if (i + 1 < Paragraphs.Count)
+                                CodeWriter.WriteLine($"            return ReturnBack && {NamingConverter.Convert(Paragraphs[i + 1].Name)}(true);");
+                            else
+                                CodeWriter.WriteLine($"            return ReturnBack;");
+                        }
                         CodeWriter.WriteLine($"        }}");
                     }                    
                 }
-                CodeWriter.Write($"        }}");
-                CodeWriter.Write($"    }}");
+                CodeWriter.WriteLine($"    }}");
+                CodeWriter.WriteLine($"}}");
             }
         }
-        private static void ConvertParagraph(Paragraph Paragraph,StreamWriter LogWriter, StreamWriter CodeWriter)
+        private static void ConvertParagraph(Paragraph Paragraph, StreamWriter LogWriter, StreamWriter CodeWriter, out bool LastStatementIsReturn)
         {
             int TAP_Level = 3;
             string TAP = "    ";
             //StatementType[] SupportedTypes = new StatementType[] { StatementType.MOVE, StatementType.BEGIN_BLOCK, StatementType.COMMENT, StatementType.ELSE, StatementType.ELSE_IF, StatementType.IF, StatementType.QUERY, StatementType.ADD, StatementType.SUBTRACT,StatementType.MULTIPLY, StatementType.MULTIPLY,StatementType.DISPLAY, StatementType.CALL, StatementType. };
+            Statement LastStatement = null;
             foreach (var Statement in Paragraph.Statements)
             {
                 
-                if (!string.IsNullOrEmpty(Statement.Converted))
+                if (!string.IsNullOrEmpty(Statement.Converted.Trim()))
                 {
                     if (Statement.StatementType == StatementType.END_BLOCK)
                         TAP_Level--;
@@ -172,7 +177,6 @@ namespace CobolToCSharp
                     if (Statement.StatementType == StatementType.BEGIN_BLOCK)
                         TAP_Level++;
 
-                    
                     CodeWriter.WriteLine($"{TAPSPACES}{SB.ToString().Replace("\r\n", $"\r\n{TAPSPACES}")}");
 
                     LogWriter.WriteLine("*************************************************************************");
@@ -181,22 +185,47 @@ namespace CobolToCSharp
                     LogWriter.WriteLine("-------------------------------------------------------------------------");
                     LogWriter.WriteLine("Converted:");
                     LogWriter.WriteLine(Statement.Converted);
+                    LastStatement = Statement;
                 }
-            }         
+            }
+
+            LastStatementIsReturn = LastStatement != null && LastStatement.Converted.Trim().StartsWith("return");
         }
         
         private static int GetLevel(string s)
         {
             return int.Parse(new Regex(@"\d+[ ]+[a-zA-Z]+").Matches($" {s}").First().Value.Split(' ',StringSplitOptions.RemoveEmptyEntries).First());
         }
-
-        private static void DisplayName(CobolVariable Variable)
+        private static void WriteAllVariables(List<CobolVariable> WORKING_STORAGE_VARIABLES, List<CobolVariable> LINKAGE_SECTION_VARIABLES)
         {
-            Console.WriteLine(Variable.ToString());
-            foreach (var item in Variable.Childs)
+            string ClassName = FileName.Replace(".cbl", string.Empty);
+            using (StreamWriter CodeWriter = new StreamWriter($"{ClassName}Variables.cs"))
             {
-                DisplayName(item);
+                CodeWriter.WriteLine($"using System;");
+                CodeWriter.WriteLine($"using System.Collections.Generic;");
+                CodeWriter.WriteLine($"using System.Linq;");
+                CodeWriter.WriteLine($"using System.Text;");
+                CodeWriter.WriteLine($"using System.Threading.Tasks;");
+                CodeWriter.WriteLine($"namespace {NameSpace}");
+                CodeWriter.WriteLine("{");
+                CodeWriter.WriteLine($"    public class {ClassName}Variables : BaseBusiness {{");
+                WriterVariables(WORKING_STORAGE_VARIABLES, CodeWriter);
+                WriterVariables(LINKAGE_SECTION_VARIABLES, CodeWriter);
+                CodeWriter.Write($"        }}");
+                CodeWriter.Write($"    }}");
             }
+           
+        }
+        private static void WriterVariables(List<CobolVariable> Variables, StreamWriter CodeWriter)
+        {
+            foreach (var Variable in Variables)
+            {
+                CodeWriter.WriteLine(Variable.ToString());
+
+                if(Variable.Childs.Count>0)
+                    WriterVariables(Variable.Childs, CodeWriter);                
+            }
+            
         }
 
 
@@ -237,7 +266,7 @@ namespace CobolToCSharp
                         PreLevel = null;
                         continue;
                     }
-                    else if (Line.Contains("PROCEDURE DIVISION USING"))
+                    else if (Line.Contains("PROCEDURE DIVISION"))
                     {
                         
                         if(string.IsNullOrEmpty(config["ProcedureDivisionEntryParagraph"]))
@@ -401,12 +430,14 @@ namespace CobolToCSharp
                             break;                        
                     }                   
                 }
-            }
-
-            DisplayName(LINKAGE_SECTION_VARIABLE);
-
-            Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum- addedLines);
+            }           
            
+
+                if(Paragraphs.Count>0)
+                    Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum- addedLines);
+
+            WriteAllVariables(WORKING_STORAGE_VARIABLE.Childs,LINKAGE_SECTION_VARIABLE.Childs);
+
             ConvertParagraphs(Paragraphs);
 
         }

@@ -14,16 +14,12 @@ namespace CobolToCSharp
         {
             Line = Line.Replace("ALL SPACES", "SPACES");
             StringBuilder ConvertedLine = new StringBuilder();
-            string[] Tokens = Line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            string[] Tokens = Line.Replace(".", string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if(Tokens[0].Equals("MOVE") && Tokens[2].Equals("TO"))
             {                
                 string SetValue = Tokens[1];
                 for (int i = 3; i < Tokens.Length; i++)
-                {
-                    if (i == Tokens.Length - 1)
-                        Tokens[i] = Tokens[i].Replace(".", string.Empty);
                     ConvertedLine.Append($"{NamingConverter.Convert(Tokens[i])} = ");
-                }
                 ConvertedLine.Append($"{NamingConverter.Convert(Tokens[1])};");
                 return ConvertedLine.ToString();
             }
