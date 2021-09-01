@@ -27,10 +27,10 @@ namespace CobolToCSharp
                 .AddEnvironmentVariables();
             config = builder.Build();
         }
-        private static readonly string FileName = "sc700.cbl";
+        //private static readonly string FileName = "sc700.cbl";
         private static readonly string NameSpace = "OSS_Domain";
      
-        //private static readonly string FileName = "DEMO.cbl";
+        private static readonly string FileName = "DEMO.cbl";
         //private static readonly string FileName = "small.cbl";
         private static int BlockCount = 0;
         #region Regex        
@@ -208,12 +208,13 @@ namespace CobolToCSharp
                 CodeWriter.WriteLine($"using System.Text;");
                 CodeWriter.WriteLine($"using System.Threading.Tasks;");
                 CodeWriter.WriteLine($"namespace {NameSpace}");
-                CodeWriter.WriteLine("{");
-                CodeWriter.WriteLine($"    public class {ClassName}Variables : BaseBusiness {{");
+                CodeWriter.WriteLine($"{{");
+                CodeWriter.WriteLine($"    public class {ClassName}Variables : BaseBusiness");
+                CodeWriter.WriteLine($"    {{");
                 WriterVariables(WORKING_STORAGE_VARIABLES, CodeWriter);
                 WriterVariables(LINKAGE_SECTION_VARIABLES, CodeWriter);
-                CodeWriter.Write($"        }}");
-                CodeWriter.Write($"    }}");
+                CodeWriter.WriteLine($"    }}");
+                CodeWriter.WriteLine($"}}");
             }
            
         }
@@ -221,7 +222,9 @@ namespace CobolToCSharp
         {
             foreach (var Variable in Variables)
             {
-                CodeWriter.WriteLine(Variable.ToString());
+                string Converted = Variable.ToString();
+                if(!string.IsNullOrEmpty(Converted))
+                    CodeWriter.WriteLine(Converted);
 
                 if(Variable.Childs.Count>0)
                     WriterVariables(Variable.Childs, CodeWriter);                
