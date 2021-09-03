@@ -57,6 +57,16 @@ namespace CobolToCSharp
                 Line = $"{Line.Substring(0, index)}{Line.Substring(index, 2)} {VarName}{Line.Substring(index + 2)}";
                 ExtraCounts += VarName.Length + 1;
             }
+            ExtraCounts = 0;
+            foreach (Match item in new Regex(@"\|\|[ ]*(\+|\-)*[0-9]+").Matches(Line))
+            {
+                Regex VarRegex = new Regex("[a-zA-Z]+[a-zA-Z0-9_]*[ ]*(>[ ]*=|<[ ]*=|=[ ]*=|![ ]*=|<|>)");
+                var index = item.Index + ExtraCounts;
+                var VarNameAndOperator = VarRegex.Matches(Line.Substring(0, index)).Last().Value;
+                Line = $"{Line.Substring(0, index)}{Line.Substring(index, 2)} {VarNameAndOperator}{Line.Substring(index + 2)}";
+                ExtraCounts += VarNameAndOperator.Length + 1;
+
+            }
 
 
 

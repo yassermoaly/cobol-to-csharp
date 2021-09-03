@@ -17,7 +17,7 @@ namespace CobolToCSharp
             {
                 string[] Fields = Line.Replace("MULTIPLY", string.Empty).Replace("BY", string.Empty).Replace("GIVING", string.Empty).Replace("ROUNDED", string.Empty).Split(' ',StringSplitOptions.RemoveEmptyEntries).Select(r=>NamingConverter.Convert(r)).ToArray();
                 string RoundFunctin = new Regex(".+ROUNDED").IsMatch(Line) ? "Ceiling" : "Floor";
-                return $"{Fields[2]} = (int)Math.Ceiling((double){Fields[0]} * (double){Fields[1]});";
+                return $"{NamingConverter.Convert(Fields[2])} = (int)Math.Ceiling((double){NamingConverter.Convert(Fields[0])} * (double){NamingConverter.Convert(Fields[1])});";
             }
             throw new Exception($"Invalid {StatementTypes.First().ToString()} Statement, {Line}");
         }

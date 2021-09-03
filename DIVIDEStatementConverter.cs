@@ -25,5 +25,10 @@ namespace CobolToCSharp
             }
             throw new Exception($"Invalid {StatementTypes.First().ToString()} Statement, {Line}");
         }
+
+        public List<CobolVariable> ExtractVariables(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, List<CobolVariable> DefinedCobolVariables)
+        {
+            return new List<CobolVariable>();
+        }
     }
 }

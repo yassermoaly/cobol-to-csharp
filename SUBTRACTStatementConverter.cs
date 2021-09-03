@@ -32,5 +32,10 @@ namespace CobolToCSharp
             }
             throw new Exception("SUBTRACT statement is not recognized");
         }
+
+        public List<CobolVariable> ExtractVariables(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, List<CobolVariable> DefinedCobolVariables)
+        {
+            return new List<CobolVariable>();
+        }
     }
 }

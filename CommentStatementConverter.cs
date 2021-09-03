@@ -12,7 +12,11 @@ namespace CobolToCSharp
 
         public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs)
         {
-            return Line.Replace("*","/");
+            return Line.Replace("*","//");
+        }
+        public List<CobolVariable> ExtractVariables(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, List<CobolVariable> DefinedCobolVariables)
+        {
+            return new List<CobolVariable>();
         }
     }
 }

@@ -27,10 +27,11 @@ namespace CobolToCSharp
                 .AddEnvironmentVariables();
             config = builder.Build();
         }
-        //private static readonly string FileName = "sc700.cbl";
+        private static readonly string WorkingDir = @"input";
+        private static readonly string FileName = "sc700.cbl";
         private static readonly string NameSpace = "OSS_Domain";
      
-        private static readonly string FileName = "DEMO.cbl";
+        //private static readonly string FileName = "DEMO.cbl";
         //private static readonly string FileName = "small.cbl";
         private static int BlockCount = 0;
         #region Regex        
@@ -117,10 +118,10 @@ namespace CobolToCSharp
         {
             foreach (var Paragraph in Paragraphs)
             {
-                SetBlocks(Paragraph);
+                SetBlocks(Paragraph);               
             }
             string ClassName = FileName.Replace(".cbl", string.Empty);
-            using (StreamWriter CodeWriter = new StreamWriter($"{ClassName}.cs"))
+            using (StreamWriter CodeWriter = new StreamWriter($@"{WorkingDir}\{ClassName}.cs"))
             {
                 CodeWriter.WriteLine($"using System;");
                 CodeWriter.WriteLine($"using System.Collections.Generic;");
@@ -130,19 +131,28 @@ namespace CobolToCSharp
                 CodeWriter.WriteLine($"namespace {NameSpace}");
                 CodeWriter.WriteLine("{");
                 CodeWriter.WriteLine($"    public class {ClassName} : {ClassName}Variables {{");                                
-                using (StreamWriter LogWriter = new StreamWriter("compare-result.log"))
+                using (StreamWriter LogWriter = new StreamWriter($@"{WorkingDir}\compare-result.log"))
                 {
+                    CodeWriter.WriteLine($"        public void Run()");
+                    CodeWriter.WriteLine($"        {{");
+                    CodeWriter.WriteLine($"            {NamingConverter.Convert(Paragraphs.First().Name)}(true,true);");                    
+                    CodeWriter.WriteLine($"        }}");
                     for (int i = 0; i < Paragraphs.Count; i++)
                     {
                         var Paragraph = Paragraphs[i];
-                        CodeWriter.WriteLine($"        public bool {NamingConverter.Convert(Paragraph.Name)}(bool ReturnBack)");
+                        CodeWriter.WriteLine($"        private bool {NamingConverter.Convert(Paragraph.Name)}(bool ReturnBack = true, bool CallNext = false)");
                         CodeWriter.WriteLine($"        {{");
                         bool LastStatementIsReturn = false;
                         ConvertParagraph(Paragraph, LogWriter,CodeWriter,out LastStatementIsReturn);
                         if (!LastStatementIsReturn)
                         {
                             if (i + 1 < Paragraphs.Count)
-                                CodeWriter.WriteLine($"            return ReturnBack && {NamingConverter.Convert(Paragraphs[i + 1].Name)}(true);");
+                            {
+                                CodeWriter.WriteLine($"            if (CallNext)");
+                                CodeWriter.WriteLine($"                return {NamingConverter.Convert(Paragraphs[i + 1].Name)}(true,true) && ReturnBack;");
+                                CodeWriter.WriteLine($"            return ReturnBack;");
+                            }
+                                
                             else
                                 CodeWriter.WriteLine($"            return ReturnBack;");
                         }
@@ -194,13 +204,13 @@ namespace CobolToCSharp
         }
         
         private static int GetLevel(string s)
-        {
-            return int.Parse(new Regex(@"\d+[ ]+[a-zA-Z]+").Matches($" {s}").First().Value.Split(' ',StringSplitOptions.RemoveEmptyEntries).First());
+        {            
+            return int.Parse(new Regex(@"\d+[ ]+[a-zA-Z]+").Matches($" {s.Replace("/",string.Empty)}").First().Value.Split(' ',StringSplitOptions.RemoveEmptyEntries).First());
         }
         private static void WriteAllVariables(List<CobolVariable> WORKING_STORAGE_VARIABLES, List<CobolVariable> LINKAGE_SECTION_VARIABLES)
         {
             string ClassName = FileName.Replace(".cbl", string.Empty);
-            using (StreamWriter CodeWriter = new StreamWriter($"{ClassName}Variables.cs"))
+            using (StreamWriter CodeWriter = new StreamWriter($@"{WorkingDir}\{ClassName}Variables.cs"))
             {
                 CodeWriter.WriteLine($"using System;");
                 CodeWriter.WriteLine($"using System.Collections.Generic;");
@@ -223,7 +233,9 @@ namespace CobolToCSharp
             foreach (var Variable in Variables)
             {
                 string Converted = Variable.ToString();
-                if(!string.IsNullOrEmpty(Converted))
+                if(Converted.Contains("public string W1-DATERS"))
+                    Converted = Variable.ToString();
+                if (!string.IsNullOrEmpty(Converted))
                     CodeWriter.WriteLine(Converted);
 
                 if(Variable.Childs.Count>0)
@@ -233,11 +245,11 @@ namespace CobolToCSharp
         }
 
 
-        private static void Parse(string FilePath)
+        private static void Parse(string FileName)
         {
 
             StringBuilder SBStatement = new StringBuilder();
-            List<string> Lines = File.ReadAllLines(FilePath).ToList();
+            List<string> Lines = File.ReadAllLines($@"{WorkingDir}\{FileName}").ToList();
             List<Paragraph> Paragraphs = new List<Paragraph>();
             bool CollectSQL = false;           
             int RowNum = 0;
@@ -252,8 +264,10 @@ namespace CobolToCSharp
             int? PreLevel = null;
             int? Level = null;
             int? ActualLevel = null;
+            string IncludeFilePath = string.Empty;
             for (int i = 0; i < Lines.Count; i++)
-            {               
+            {
+                RowNum++;
                 Line = Lines[i];
                 if (!string.IsNullOrEmpty(Line))
                 {
@@ -287,26 +301,57 @@ namespace CobolToCSharp
                         case CobolToCSharp.ParseMode.COLLECT_WORKING_STORAGE_SECTION:
                         case CobolToCSharp.ParseMode.COLLECT_LINKAGE_SECTION:
                             if (!string.IsNullOrEmpty(Line.Trim()))
-                            {                               
-                                if (CollectSQL)
-                                {
-                                    if (new Regex("END-EXEC").IsMatch(Line))
-                                    {
-                                        CollectSQL = false;
-                                        continue;
-                                    }
-                                    continue;
-                                }
-                                if(new Regex("EXEC SQL.+END-EXEC").IsMatch(Line))
+                            {
+                                //if (CollectSQL)
+                                //{
+                                //    if (new Regex("END-EXEC").IsMatch(Line))
+                                //    {
+                                //        CollectSQL = false;
+                                //        continue;
+                                //    }
+                                //    continue;
+                                //}
+                                //else
+                                if (new Regex("EXEC SQL.+END-EXEC").IsMatch(Line))
                                 {
                                     continue;
                                 }
                                 else if(new Regex("EXEC SQL").IsMatch(Line))
                                 {
-                                    CollectSQL = true;
+                                  //  CollectSQL = true;
+                                    string[] IncludeLines = null;
+                                    while (true)
+                                    {
+                                        i++;
+                                        Line = Lines[i];
+                                        if (new Regex("END-EXEC").IsMatch(Line))
+                                            break;
+
+                                        Match IncludeMatch = new Regex(@"INCLUDE[ ]+[a-zA-Z0-9-_\.]+").Match(Line);
+                                        if (IncludeMatch.Success)
+                                        {
+                                            IncludeFilePath = $@"{WorkingDir}\{IncludeMatch.Value.Replace("INCLUDE", string.Empty).Trim()}";
+                                            
+                                            if (File.Exists(IncludeFilePath))
+                                            {
+                                                IncludeLines = File.ReadAllLines(IncludeFilePath);
+                                            }
+                                            else
+                                            {
+                                                int x = 10;
+                                            }
+                                        }
+                                        
+                                    }
+
+                                    if (IncludeLines != null)
+                                    {
+                                        Lines.InsertRange(i+1,IncludeLines);
+                                        addedLines+= IncludeLines.Length;                                        
+                                    }
                                     continue;
                                 }
-
+                               
                                 if (RegexCOMMENT.IsMatch(Line)) continue;
 
                                 if (SBStatement.Length > 0)
@@ -314,7 +359,10 @@ namespace CobolToCSharp
                                 SBStatement.Append(Line);
                                 if (SBStatement.ToString().Trim().EndsWith("."))
                                 {
-                                    
+                                    if(Line.Contains("  05 LCNCNT     PIC S9(5)V COMP-3."))
+                                    {
+                                        int asd = 1230;
+                                    }
                                     Level = GetLevel(SBStatement.ToString());
                                     if (Level != 66 && Level != 77 && Level != 88)
                                     {
@@ -354,11 +402,9 @@ namespace CobolToCSharp
                                     SBStatement = new StringBuilder();
                                 }
                             }
-
-
-                            int x = 10;
                             break;                      
                         case CobolToCSharp.ParseMode.COLLECT_PROCEDURE_DIVISION:
+                            
                             Line = RemoveNumericsAtStart(Line);
                             if (CollectSQL)
                             {
@@ -408,7 +454,7 @@ namespace CobolToCSharp
                             }
                             else if (RegexCOMMENT.IsMatch(Line))
                             {
-                                Paragraphs.Last().AddStatement(SBStatement.ToString(), RowNum - addedLines);
+                                Paragraphs.Last().AddStatement(Line, RowNum - addedLines);
                             }
                             else if (RegexStatement.IsMatch(Line))
                             {

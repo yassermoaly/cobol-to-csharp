@@ -28,13 +28,14 @@ namespace CobolToCSharp
             StringBuilder Query = new StringBuilder();
             Query.AppendLine("Parameters=new Dictionary<string,object>();");
             HashSet<string> Parameters = new HashSet<string>();
-            foreach (Match Match in RegexSqlParameter.Matches(Line))
+            string LineWithoutFillIn = FillParametersMatch.Value.Length == 0 ? Line : Line.Replace(FillParametersMatch.Value, string.Empty);
+            foreach (Match Match in RegexSqlParameter.Matches(LineWithoutFillIn))
             {
                 string ParameterName = NamingConverter.Convert(Match.Value).Replace(":", string.Empty);
-                if (!Parameters.Contains(ParameterName) && !FillParameters.Contains(ParameterName))
+                if (!Parameters.Contains(ParameterName))
                 {
-                    Query.AppendLine($"Parameters.Add(\"{ ParameterName}\", {ParameterName});");
-                    Line = Line.Replace(Match.Value, $"@{ParameterName}");
+                    Query.AppendLine($"Parameters.Add(\"{ NamingConverter.Convert(ParameterName)}\", {NamingConverter.Convert(ParameterName)});");
+                    Line = Line.Replace(Match.Value, $":{NamingConverter.Convert(ParameterName)}");
                     Parameters.Add(ParameterName);
                 }
             }
@@ -50,35 +51,38 @@ namespace CobolToCSharp
             {            
                 Match FillParametersMatch = RegexFillInParameters.Match(Line);
                 Line = $"{Line.Substring(0, FillParametersMatch.Index)} {Line.Substring(FillParametersMatch.Index+ FillParametersMatch.Length-4)}".Replace("  "," ");
-                Query.AppendLine("Parameters=new Dictionary<string,object>();");
-                foreach (Match Match in RegexSqlParameter.Matches(Line))
-                {                    
-                    string ParameterName = NamingConverter.Convert(Match.Value).Replace(":",string.Empty);
-                    Query.AppendLine($"Parameters.Add(\"{ ParameterName}\", {ParameterName});");
-                    Line = Line.Replace(Match.Value, $"@{ParameterName}");
-                }
+                //Query.AppendLine("Parameters=new Dictionary<string,object>();");
+                //foreach (Match Match in RegexSqlParameter.Matches(Line))
+                //{                    
+                //    string ParameterName = NamingConverter.Convert(Match.Value).Replace(":",string.Empty);
+                //    Query.AppendLine($"Parameters.Add(\"{ ParameterName}\", {ParameterName});");
+                //    Line = Line.Replace(Match.Value, $"@{ParameterName}");
+                //}
                 
 
                 Query.AppendLine($"SQL = \"{Line}\";");
-                Query.AppendLine($"DT = DBOPEARATION.DBExecuteDT(SQL, ConnStrOracle, DT,Parameters);");
+                Query.AppendLine($"DT = DBOPEARATION.DBExecuteDT(SQL, ConnStrOracle, DT,Parameters,out SQLCODE);");
 
 
                 string[] FillParameters = FillParametersMatch.Value.Substring(4, FillParametersMatch.Value.Length - 8).Replace(":",string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries).Select(r=>r.Trim()).ToArray();
                 Match SelectParamatersMatch = new Regex("^SELECT.+FROM").Match(Line);
                 string[] SelectParameters = SelectParamatersMatch.Value.Substring(6, SelectParamatersMatch.Value.Length - 10).Split(',', StringSplitOptions.RemoveEmptyEntries).Select(r => r.Trim()).ToArray();
+                Query.AppendLine("if (DT.Rows.Count > 0)");
+                Query.AppendLine("{");
                 for (int h = 0; h < FillParameters.Length; h++)
                 {                   
                     if(new Regex("^[a-zA-Z][a-zA-Z0-9-]+$").IsMatch(SelectParameters[h]))
-                        Query.AppendLine($"{NamingConverter.Convert(FillParameters[h].Replace("@",string.Empty))} = DT.Rows[0][\"{SelectParameters[h]}\"];");
+                        Query.AppendLine($"    {NamingConverter.Convert(FillParameters[h].Replace("@",string.Empty))} = Convert.ToInt64(DT.Rows[0][\"{SelectParameters[h]}\"]);");
                     else
-                        Query.AppendLine($"{NamingConverter.Convert(FillParameters[h].Replace("@", string.Empty))} = DT.Rows[0][\"{h}\"];");
+                        Query.AppendLine($"    {NamingConverter.Convert(FillParameters[h].Replace("@", string.Empty))} = Convert.ToInt64(DT.Rows[0][\"{h}\"]);");
                 }
+                Query.AppendLine("}");
                 return Query.ToString();
             }
             else if (RegexInsertStatement.IsMatch(Line) || RegexUpdateStatement.IsMatch(Line) || RegexDeleteStatement.IsMatch(Line))
             {             
                 Query.AppendLine($"SQL = \"{Line}\";");
-                Query.AppendLine($"DT = DBOPEARATION.DBExecuteDT(SQL, ConnStrOracle, DT,Parameters);");
+                Query.AppendLine($"DT = DBOPEARATION.DBExecuteDT(SQL, ConnStrOracle, DT,Parameters,out SQLCODE);");
                 return Query.ToString();
             }
             
@@ -105,9 +109,9 @@ namespace CobolToCSharp
                 for (int h = 0; h < FillParameters.Length; h++)
                 {
                     if (new Regex("^[a-zA-Z][a-zA-Z0-9-]+$").IsMatch(SelectParameters[h]))
-                        Query.AppendLine($"{NamingConverter.Convert(FillParameters[h].Replace("@", string.Empty))} = {CursorName}_DR[\"{SelectParameters[h]}\"];");
+                        Query.AppendLine($"{NamingConverter.Convert(FillParameters[h].Replace(":", string.Empty))} = Convert.ToInt64({CursorName}_DR[\"{SelectParameters[h]}\"]);");
                     else
-                        Query.AppendLine($"{NamingConverter.Convert(FillParameters[h].Replace("@", string.Empty))} = {CursorName}_DR[\"{h}\"];");
+                        Query.AppendLine($"{NamingConverter.Convert(FillParameters[h].Replace(":", string.Empty))} = Convert.ToInt64({CursorName}_DR[\"{h}\"]);");
                 }
 
                 return Query.ToString();
@@ -123,7 +127,7 @@ namespace CobolToCSharp
             {
                 string CursorName = Line.Replace("CLOSE", string.Empty).Replace(".", string.Empty).Trim();
                 Query = new StringBuilder();
-                Query.AppendLine($"Cursors.Remove(\"{CursorName}\");");
+                Query.AppendLine($"Cursors.Remove(Cursors.Get(\"{CursorName}\"));");
                 return Query.ToString();
             }
 

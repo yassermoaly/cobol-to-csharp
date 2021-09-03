@@ -18,6 +18,8 @@ namespace CobolToCSharp
             {
                 if(string.IsNullOrEmpty(_Converted))
                     _Converted = StatementConverterFactory.CreateInstance(this).Convert(Raw, Paragraph, Paragraphs);                
+
+                
                 return _Converted;
             }
         }

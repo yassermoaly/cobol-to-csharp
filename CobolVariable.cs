@@ -10,7 +10,7 @@ namespace CobolToCSharp
     public class CobolVariable
     {
 
-        static Regex RegexNumeric = new Regex(@"^(S9+|9+)((V9+)*|(\.9+)*)$");
+        static Regex RegexNumeric = new Regex(@"^(S9+|9+)((V9*)*|(\.9*)*)$");
         static Regex RegexAlphaNumberic = new Regex(@"^X+$");
         static Regex RegexAlphabetic = new Regex(@"^A+$");
 
@@ -28,8 +28,18 @@ namespace CobolToCSharp
         {
             get
             {
-                if(string.IsNullOrEmpty(_RawWithoutLevel) && !string.IsNullOrEmpty(Raw))
-                    _RawWithoutLevel =  new Regex(@"^[\d/ ]+").Replace(Raw, string.Empty).Trim();
+                
+                if (string.IsNullOrEmpty(_RawWithoutLevel) && !string.IsNullOrEmpty(Raw))
+                {
+                   
+                    Match LastDigitMatch = new Regex(@"\d+[ ]+[a-zA-Z]").Matches($" {Raw.Replace("/", string.Empty)}").First();
+                    _RawWithoutLevel = Raw.Substring(LastDigitMatch.Index + LastDigitMatch.Length-2).Trim();
+                    if(_RawWithoutLevel!= new Regex(@"^[\d/ ]+").Replace(Raw, string.Empty).Trim())
+                    {
+                        int asd = 1200;
+                    }
+                    //_RawWithoutLevel = new Regex(@"^[\d/ ]+").Replace(Raw, string.Empty).Trim();
+                }
 
                 return _RawWithoutLevel;
             }
@@ -107,8 +117,14 @@ namespace CobolToCSharp
         {
             get
             {
+
                 if (string.IsNullOrEmpty(Raw))
                     return string.Empty;
+
+                if (Raw.Contains("HOBVAL"))
+                {
+                    int x = 10123;
+                }
                 string _RawDataType = RawDataType;
                 if(_RawDataType == "class")
                 {
@@ -116,7 +132,7 @@ namespace CobolToCSharp
                 }
                 if (_RawDataType.StartsWith("9")|| _RawDataType.StartsWith("S9"))
                 {
-                    if (_RawDataType.ToLower().Contains("v") || _RawDataType.ToLower().Contains("."))
+                    if (!_RawDataType.ToLower().EndsWith("v") && (_RawDataType.ToLower().Contains("v") || _RawDataType.ToLower().Contains(".")))
                         return "double";
                     return "long";
                 }
@@ -141,19 +157,7 @@ namespace CobolToCSharp
                     return Childs.Sum(r => r.Size);
                 }
 
-                _RawDataType = TransformSize(_RawDataType);
-                //Match Match;
-                //while (true)
-                //{
-                //    Match = new Regex(@"(9|X|A)\([0-9]+\)").Match(_RawDataType);
-                //    if (Match.Captures.Count==0) break;
-                //    char RepeatedCharacter = Match.Value[0];
-
-                //    int Length = int.Parse(Match.Value.Substring(2, Match.Length - 3));
-
-                //    _RawDataType = $"{_RawDataType.Substring(0, Match.Index)}{String.Empty.PadLeft(Length, RepeatedCharacter)}{(Match.Index+Match.Length < RawDataType.Length ? _RawDataType.Substring(Match.Length + 1) : string.Empty)}";
-                //}
-
+                _RawDataType = TransformSize(_RawDataType);               
 
                 if (RegexNumeric.IsMatch(_RawDataType) || RegexAlphaNumberic.IsMatch(_RawDataType) || RegexAlphabetic.IsMatch(_RawDataType))
                 {
@@ -255,12 +259,14 @@ namespace CobolToCSharp
                 SB.AppendLine($"        {{");
                 SB.AppendLine($"            get");
                 SB.AppendLine($"            {{");
-                SB.AppendLine($"                return $\"{string.Join("", Childs.Select(c => $"{{{NamingConverter.Convert(c.RawName)}.{(c.IsString ? $"PadRight({c.Size}, ' ')" : $"ToString(){(c.DataType.Equals("double") ? ".Replace(\".\",string.Empty)" : string.Empty)}.PadLeft({(c.IsSigned ? c.Size - 1 : c.Size)}, '0'){(c.IsSigned ? $".PadLeft({c.Size},'+')" : string.Empty)}")}}}").ToArray())}\";");
+                SB.AppendLine($"                return $\"{string.Join("", Childs.Where(r=>!r.RawName.Equals("FILLER")).Select(c => $"{{{NamingConverter.Convert(c.RawName)}.{(c.IsString ? $"PadRight({c.Size}, ' ')" : $"ToString(){(c.DataType.Equals("double") ? ".Replace(\".\",string.Empty)" : string.Empty)}.PadLeft({(c.IsSigned ? c.Size - 1 : c.Size)}, '0'){(c.IsSigned ? $".PadLeft({c.Size},'+')" : string.Empty)}")}}}").ToArray())}\";");
                 SB.AppendLine($"            }}");
                 SB.AppendLine($"            set");
                 SB.AppendLine($"            {{");
                 foreach (var child in Childs)
                 {
+                    if (child.RawName.Equals("FILLER")) continue;
+
                     switch (child.DataType)
                     {
                         case "string":
