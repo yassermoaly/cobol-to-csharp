@@ -83,7 +83,7 @@ namespace CobolToCSharp
 
                 int Length = int.Parse(Match.Value.Substring(2, Match.Length - 3));
 
-                _RawDataType = $"{_RawDataType.Substring(0, Match.Index)}{String.Empty.PadLeft(Length, RepeatedCharacter)}{(Match.Index + Match.Length < RawDataType.Length ? _RawDataType.Substring(Match.Length + 1) : string.Empty)}";
+                _RawDataType = $"{_RawDataType.Substring(0, Match.Index)}{String.Empty.PadLeft(Length, RepeatedCharacter)}{((Match.Index + Match.Length +1) < _RawDataType.Length ? _RawDataType.Substring(Match.Index + Match.Length + 1) : string.Empty)}";
             }
             return _RawDataType;
         }
@@ -121,10 +121,7 @@ namespace CobolToCSharp
                 if (string.IsNullOrEmpty(Raw))
                     return string.Empty;
 
-                if (Raw.Contains("HOBVAL"))
-                {
-                    int x = 10123;
-                }
+                
                 string _RawDataType = RawDataType;
                 if(_RawDataType == "class")
                 {
@@ -149,7 +146,10 @@ namespace CobolToCSharp
         {
             get
             {
-
+                if(RawDataType == "9(2)V9(2)")
+                {
+                    int asda =100;
+                }
                 string _RawDataType = RawDataType;
                 if (string.IsNullOrEmpty(_RawDataType)) return 0;
                 if (_RawDataType.Equals("class"))
@@ -299,7 +299,7 @@ namespace CobolToCSharp
                     if (DataType == "string")
                         SB.AppendLine($"                return _{NamingConverter.Convert(RawName)};");
                     else
-                        SB.AppendLine($"                return {DataType}.Parse(_{NamingConverter.Convert(RawName)}){(IsSigned ? ".Abs()":string.Empty)};");
+                        SB.AppendLine($"                return {DataType}.Parse(_{NamingConverter.Convert(RawName)}){(IsSigned ? string.Empty: ".Abs()")};");
                     SB.AppendLine($"            }}");
                     SB.AppendLine($"            set");
                     SB.AppendLine($"            {{");

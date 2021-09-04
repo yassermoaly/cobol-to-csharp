@@ -335,15 +335,10 @@ namespace CobolToCSharp
                                             if (File.Exists(IncludeFilePath))
                                             {
                                                 IncludeLines = File.ReadAllLines(IncludeFilePath);
-                                            }
-                                            else
-                                            {
-                                                int x = 10;
-                                            }
+                                            }                                            
                                         }
                                         
                                     }
-
                                     if (IncludeLines != null)
                                     {
                                         Lines.InsertRange(i+1,IncludeLines);
