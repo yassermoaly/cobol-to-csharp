@@ -10,7 +10,7 @@ namespace CobolToCSharp
     {
         public List<StatementType> StatementTypes => new List<StatementType>(new StatementType[] { StatementType.DISPLAY });
 
-        public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs)
+        public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, Dictionary<string,string> CobolVariablesDataTypes = null)
         {
             return string.Empty;
            // if (Line.EndsWith(".")) Line = Line.Substring(0, Line.Length - 1);

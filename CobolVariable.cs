@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -145,11 +146,7 @@ namespace CobolToCSharp
         public int Size
         {
             get
-            {
-                if(RawDataType == "9(2)V9(2)")
-                {
-                    int asda =100;
-                }
+            {               
                 string _RawDataType = RawDataType;
                 if (string.IsNullOrEmpty(_RawDataType)) return 0;
                 if (_RawDataType.Equals("class"))
@@ -250,7 +247,8 @@ namespace CobolToCSharp
 
         public override string ToString()
         {
-            if (RawName.Equals("FILLER")) return string.Empty;
+           string[] ExecludedVraibles = Config.Values["ExecludedVariables"].Split(',');
+            if (ExecludedVraibles.Contains(RawName)) return string.Empty;
             StringBuilder SB = new StringBuilder();
             SB.AppendLine($"        #region {RawName}");
             if (DataType.Equals("class"))
@@ -303,7 +301,10 @@ namespace CobolToCSharp
                     SB.AppendLine($"            }}");
                     SB.AppendLine($"            set");
                     SB.AppendLine($"            {{");
-                    SB.AppendLine($"                _{NamingConverter.Convert(RawName)}=value.ToString();");
+                    if (DataType == "string")
+                        SB.AppendLine($"                _{NamingConverter.Convert(RawName)} = value!=null?value.ToString():string.Empty;");
+                    else
+                        SB.AppendLine($"                _{NamingConverter.Convert(RawName)} = value.ToString();");
                     SB.AppendLine($"            }}");
                     SB.AppendLine($"         }}");
                 }

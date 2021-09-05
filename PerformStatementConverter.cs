@@ -11,7 +11,7 @@ namespace CobolToCSharp
     {
         public List<StatementType> StatementTypes => new List<StatementType>(new StatementType[] { StatementType.PERFORM });
 
-        public string Convert(string Line, Paragraph Paragraph,List<Paragraph> Paragraphs)
+        public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, Dictionary<string,string> CobolVariablesDataTypes = null)
         {
             if(new Regex("PERFORM[ ]+[a-zA-Z0-9-]+[ ]+THRU[ ]+[a-zA-Z0-9-]+").IsMatch(Line))
             {

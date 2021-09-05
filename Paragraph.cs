@@ -9,6 +9,7 @@ namespace CobolToCSharp
 {
     public class Paragraph
     {
+     
         #region Regex
         public static Regex RegexGOTO = new Regex("^GO[ ]+TO");
         public static Regex RegexEXECSQL = new Regex("^EXEC[ ]+SQL");

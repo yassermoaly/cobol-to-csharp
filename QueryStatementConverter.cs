@@ -9,6 +9,7 @@ namespace CobolToCSharp
 {
     public class QueryStatementConverter : IStatementConverter
     {
+
         static Dictionary<string, string> CursorSelectQueries = new Dictionary<string, string>();
         private static readonly Regex RegexSelectStatement = new Regex("^SELECT.+INTO.+FROM");
         private static readonly Regex RegexInsertStatement = new Regex(@"^INSERT.+INTO.+VALUES.+\(.+\)");
@@ -42,7 +43,23 @@ namespace CobolToCSharp
             
             return Query.ToString();
         }
-        public string Convert(string Line,Paragraph Paragraph, List<Paragraph> Paragraphs)
+
+        private static string GetVariableDataType(string Name,List<CobolVariable> Variables)
+        {
+            if (Variables != null)
+            {
+                foreach (var Variable in Variables)
+                {
+                    if (Variable.RawName.Contains(Name))
+                        return Variable.DataType;
+                    if (Variable.Childs.Count > 0)
+                        GetVariableDataType(Name, Variable.Childs);
+                }
+            }
+            return string.Empty;
+
+        }
+        public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, Dictionary<string,string> CobolVariablesDataTypes = null)
         {
             string OrLine = Line;
             Line = Paragraph.RegexEXECSQL.Replace(Line,string.Empty).Replace("END-EXEC.", string.Empty).Trim();           
@@ -70,11 +87,29 @@ namespace CobolToCSharp
                 Query.AppendLine("if (DT.Rows.Count > 0)");
                 Query.AppendLine("{");
                 for (int h = 0; h < FillParameters.Length; h++)
-                {                   
-                    if(new Regex("^[a-zA-Z][a-zA-Z0-9-]+$").IsMatch(SelectParameters[h]))
-                        Query.AppendLine($"    {NamingConverter.Convert(FillParameters[h].Replace("@",string.Empty))} = Convert.ToInt64(DT.Rows[0][\"{SelectParameters[h]}\"]);");
+                {
+                    string ConvertType = string.Empty;
+                    string VariableDataType = CobolVariablesDataTypes[FillParameters[h]];
+                    switch (VariableDataType)
+                    {
+                        case "double":
+                            ConvertType = "ToDouble";
+                            break;
+                        case "long":
+                            ConvertType = "ToInt64";
+                            break;
+                        case "class":
+                        case "string":
+                            ConvertType = "ToString";
+                            break;
+                        default:
+                            ConvertType = "ToInt64";
+                            break;
+                    }
+                    if (new Regex("^[a-zA-Z][a-zA-Z0-9-]+$").IsMatch(SelectParameters[h]))
+                        Query.AppendLine($"    {NamingConverter.Convert(FillParameters[h].Replace("@",string.Empty))} = Convert.{ConvertType}(DT.Rows[0][\"{SelectParameters[h]}\"]);");
                     else
-                        Query.AppendLine($"    {NamingConverter.Convert(FillParameters[h].Replace("@", string.Empty))} = Convert.ToInt64(DT.Rows[0][\"{h}\"]);");
+                        Query.AppendLine($"    {NamingConverter.Convert(FillParameters[h].Replace("@", string.Empty))} = Convert.{ConvertType}(DT.Rows[0][\"{h}\"]);");
                 }
                 Query.AppendLine("}");
                 return Query.ToString();

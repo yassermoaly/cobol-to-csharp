@@ -17,16 +17,7 @@ namespace CobolToCSharp
     }
     class Program
     {
-        static IConfigurationRoot config;
-        static Program()
-        {
-            var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
-            var builder = new ConfigurationBuilder()
-                .AddJsonFile($"appsettings.json", true, true)
-                .AddJsonFile($"appsettings.{env}.json", true, true)
-                .AddEnvironmentVariables();
-            config = builder.Build();
-        }
+        
         private static readonly string WorkingDir = @"input";
         private static readonly string FileName = "sc700.cbl";
         private static readonly string NameSpace = "OSS_Domain";
@@ -42,7 +33,9 @@ namespace CobolToCSharp
         private static readonly Regex ParagraphRegex = new Regex(@"^[a-zA-Z0-9-_]+\.$");
         #endregion
 
-        
+        private static CobolVariable WORKING_STORAGE_VARIABLE = new CobolVariable();
+        private static CobolVariable LINKAGE_SECTION_VARIABLE = new CobolVariable();
+
         static void Main(string[] args)
         {           
             DateTime SD = DateTime.Now;
@@ -114,8 +107,12 @@ namespace CobolToCSharp
                 }
             }
         }
-        private static void ConvertParagraphs(List<Paragraph> Paragraphs)
+
+        private static void ConvertParagraphs(List<Paragraph> Paragraphs, Dictionary<string, string> DataTypes)
         {
+            List<CobolVariable> CobolVariables = new List<CobolVariable>(WORKING_STORAGE_VARIABLE.Childs.ToArray());
+            CobolVariables.AddRange(LINKAGE_SECTION_VARIABLE.Childs);
+            
             foreach (var Paragraph in Paragraphs)
             {
                 SetBlocks(Paragraph);               
@@ -143,7 +140,7 @@ namespace CobolToCSharp
                         CodeWriter.WriteLine($"        private bool {NamingConverter.Convert(Paragraph.Name)}(bool ReturnBack = true, bool CallNext = false)");
                         CodeWriter.WriteLine($"        {{");
                         bool LastStatementIsReturn = false;
-                        ConvertParagraph(Paragraph, LogWriter,CodeWriter,out LastStatementIsReturn);
+                        ConvertParagraph(Paragraph, LogWriter,CodeWriter, DataTypes, out LastStatementIsReturn);
                         if (!LastStatementIsReturn)
                         {
                             if (i + 1 < Paragraphs.Count)
@@ -163,7 +160,7 @@ namespace CobolToCSharp
                 CodeWriter.WriteLine($"}}");
             }
         }
-        private static void ConvertParagraph(Paragraph Paragraph, StreamWriter LogWriter, StreamWriter CodeWriter, out bool LastStatementIsReturn)
+        private static void ConvertParagraph(Paragraph Paragraph, StreamWriter LogWriter, StreamWriter CodeWriter, Dictionary<string, string> DataTypes, out bool LastStatementIsReturn)
         {
             int TAP_Level = 3;
             string TAP = "    ";
@@ -171,7 +168,8 @@ namespace CobolToCSharp
             Statement LastStatement = null;
             foreach (var Statement in Paragraph.Statements)
             {
-                
+                Statement.CobolVariablesDataTypes = DataTypes;
+
                 if (!string.IsNullOrEmpty(Statement.Converted.Trim()))
                 {
                     if (Statement.StatementType == StatementType.END_BLOCK)
@@ -188,6 +186,9 @@ namespace CobolToCSharp
                     if (Statement.StatementType == StatementType.BEGIN_BLOCK)
                         TAP_Level++;
 
+                    //CodeWriter.WriteLine($"{TAPSPACES}//******************************************************");
+                    //CodeWriter.WriteLine($"{TAPSPACES}//{Statement.Raw}");
+                    //CodeWriter.WriteLine($"{TAPSPACES}//******************************************************");
                     CodeWriter.WriteLine($"{TAPSPACES}{SB.ToString().Replace("\r\n", $"\r\n{TAPSPACES}")}");
 
                     LogWriter.WriteLine("*************************************************************************");
@@ -196,6 +197,7 @@ namespace CobolToCSharp
                     LogWriter.WriteLine("-------------------------------------------------------------------------");
                     LogWriter.WriteLine("Converted:");
                     LogWriter.WriteLine(Statement.Converted);
+
                     LastStatement = Statement;
                 }
             }
@@ -207,9 +209,12 @@ namespace CobolToCSharp
         {            
             return int.Parse(new Regex(@"\d+[ ]+[a-zA-Z]+").Matches($" {s.Replace("/",string.Empty)}").First().Value.Split(' ',StringSplitOptions.RemoveEmptyEntries).First());
         }
-        private static void WriteAllVariables(List<CobolVariable> WORKING_STORAGE_VARIABLES, List<CobolVariable> LINKAGE_SECTION_VARIABLES)
+        private static Dictionary<string,string> WriteAllVariables(List<CobolVariable> WORKING_STORAGE_VARIABLES, List<CobolVariable> LINKAGE_SECTION_VARIABLES)
         {
+            Dictionary<string, string> DataTypes = new Dictionary<string, string>();
+            Console.WriteLine("Write Variables");
             string ClassName = FileName.Replace(".cbl", string.Empty);
+
             using (StreamWriter CodeWriter = new StreamWriter($@"{WorkingDir}\{ClassName}Variables.cs"))
             {
                 CodeWriter.WriteLine($"using System;");
@@ -221,33 +226,43 @@ namespace CobolToCSharp
                 CodeWriter.WriteLine($"{{");
                 CodeWriter.WriteLine($"    public class {ClassName}Variables : BaseBusiness");
                 CodeWriter.WriteLine($"    {{");
-                WriterVariables(WORKING_STORAGE_VARIABLES, CodeWriter);
-                WriterVariables(LINKAGE_SECTION_VARIABLES, CodeWriter);
+                HashSet<string> ProcessedVariables = new HashSet<string>();
+                DataTypes.Merge<string,string>(WriterVariables(WORKING_STORAGE_VARIABLES, CodeWriter, ProcessedVariables));
+                DataTypes.Merge<string, string>(WriterVariables(LINKAGE_SECTION_VARIABLES, CodeWriter, ProcessedVariables));
                 CodeWriter.WriteLine($"    }}");
                 CodeWriter.WriteLine($"}}");
             }
-           
+            Console.WriteLine("Finish Write Variables");
+            return DataTypes;
         }
-        private static void WriterVariables(List<CobolVariable> Variables, StreamWriter CodeWriter)
+        private static Dictionary<string,string> WriterVariables(List<CobolVariable> Variables, StreamWriter CodeWriter, HashSet<string> ProcessedVariables)
         {
+            Dictionary<string, string> DataTypes = new Dictionary<string, string>();
             foreach (var Variable in Variables)
             {
+                if (ProcessedVariables.Contains(Variable.RawName))
+                    continue;
                 string Converted = Variable.ToString();
-                if(Converted.Contains("public string W1-DATERS"))
-                    Converted = Variable.ToString();
+                if (!DataTypes.ContainsKey(Variable.RawName))
+                    DataTypes.Add(Variable.RawName, Variable.DataType);
                 if (!string.IsNullOrEmpty(Converted))
                     CodeWriter.WriteLine(Converted);
 
-                if(Variable.Childs.Count>0)
-                    WriterVariables(Variable.Childs, CodeWriter);                
+                if (Variable.Childs.Count > 0)
+                {
+                    DataTypes.Merge<string, string>(WriterVariables(Variable.Childs, CodeWriter, ProcessedVariables));
+                }
+                ProcessedVariables.Add(Variable.RawName);
             }
-            
+
+            return DataTypes;
+
+
         }
 
 
         private static void Parse(string FileName)
         {
-
             StringBuilder SBStatement = new StringBuilder();
             List<string> Lines = File.ReadAllLines($@"{WorkingDir}\{FileName}").ToList();
             List<Paragraph> Paragraphs = new List<Paragraph>();
@@ -258,9 +273,9 @@ namespace CobolToCSharp
             int addedLines = 0;
             ParseMode ParseMode = ParseMode.NONE;
 
-            CobolVariable WORKING_STORAGE_VARIABLE = new CobolVariable();
+           
             CobolVariable CurrentVariable = new CobolVariable();
-            CobolVariable LINKAGE_SECTION_VARIABLE = new CobolVariable();
+            
             int? PreLevel = null;
             int? Level = null;
             int? ActualLevel = null;
@@ -286,13 +301,13 @@ namespace CobolToCSharp
                     else if (Line.Contains("PROCEDURE DIVISION"))
                     {
                         
-                        if(string.IsNullOrEmpty(config["ProcedureDivisionEntryParagraph"]))
+                        if(string.IsNullOrEmpty(Config.Values["ProcedureDivisionEntryParagraph"]))
                             ParseMode = ParseMode.COLLECT_PROCEDURE_DIVISION;
                         else
                             ParseMode = ParseMode.NONE;
                         continue;
                     }
-                    else if (!string.IsNullOrEmpty(config["ProcedureDivisionEntryParagraph"]) && Line.Contains(config["ProcedureDivisionEntryParagraph"]))
+                    else if (!string.IsNullOrEmpty(Config.Values["ProcedureDivisionEntryParagraph"]) && Line.Contains(Config.Values["ProcedureDivisionEntryParagraph"]))
                     {
                         ParseMode = ParseMode.COLLECT_PROCEDURE_DIVISION;
                     }
@@ -323,19 +338,26 @@ namespace CobolToCSharp
                                     while (true)
                                     {
                                         i++;
-                                        Line = Lines[i];
+                                        Line = Lines[i].Replace('\t', ' ');
+                                       
                                         if (new Regex("END-EXEC").IsMatch(Line))
                                             break;
-
+                                       
+                                        
                                         Match IncludeMatch = new Regex(@"INCLUDE[ ]+[a-zA-Z0-9-_\.]+").Match(Line);
                                         if (IncludeMatch.Success)
                                         {
                                             IncludeFilePath = $@"{WorkingDir}\{IncludeMatch.Value.Replace("INCLUDE", string.Empty).Trim()}";
                                             
+                                            
                                             if (File.Exists(IncludeFilePath))
                                             {
                                                 IncludeLines = File.ReadAllLines(IncludeFilePath);
-                                            }                                            
+                                            }
+                                            else
+                                            {
+                                                int x = 1230;
+                                            }
                                         }
                                         
                                     }
@@ -480,9 +502,13 @@ namespace CobolToCSharp
                 if(Paragraphs.Count>0)
                     Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum- addedLines);
 
-            WriteAllVariables(WORKING_STORAGE_VARIABLE.Childs,LINKAGE_SECTION_VARIABLE.Childs);
+            var DataTypes = WriteAllVariables(WORKING_STORAGE_VARIABLE.Childs,LINKAGE_SECTION_VARIABLE.Childs);
 
-            ConvertParagraphs(Paragraphs);
+            List<CobolVariable> CobolVariables = new List<CobolVariable>(new CobolVariable[] { WORKING_STORAGE_VARIABLE, LINKAGE_SECTION_VARIABLE });
+
+            //ExtractUndefinedVariables(Paragraphs, CobolVariables);
+
+            ConvertParagraphs(Paragraphs,DataTypes);
 
         }
     }

@@ -9,6 +9,6 @@ namespace CobolToCSharp
     public interface IStatementConverter
     {
         List<StatementType> StatementTypes { get; }
-        string Convert(string Line,Paragraph Paragraph,List<Paragraph> Paragraphs);
+        string Convert(string Line,Paragraph Paragraph,List<Paragraph> Paragraphs,Dictionary<string,string> CobolVariablesDataTypes = null);
     }
 }

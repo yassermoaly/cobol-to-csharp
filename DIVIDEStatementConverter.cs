@@ -11,7 +11,7 @@ namespace CobolToCSharp
     {
         public List<StatementType> StatementTypes => new List<StatementType>(new StatementType[] { StatementType.DIVIDE });
 
-        public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs)
+        public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, Dictionary<string,string> CobolVariablesDataTypes = null)
         {
             if(new Regex("DIVIDE[ ]+[a-zA-Z0-9-]+[ ]+BY[ ]+([a-zA-Z0-9-]+|[0-9]*.[0-9]*)[ ]+GIVING[ ]+([a-zA-Z0-9-]+)( REMAINDER [a-zA-Z0-9-]+)*").IsMatch(Line))
             {
@@ -24,11 +24,6 @@ namespace CobolToCSharp
                 return SB.ToString();
             }
             throw new Exception($"Invalid {StatementTypes.First().ToString()} Statement, {Line}");
-        }
-
-        public List<CobolVariable> ExtractVariables(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, List<CobolVariable> DefinedCobolVariables)
-        {
-            return new List<CobolVariable>();
         }
     }
 }

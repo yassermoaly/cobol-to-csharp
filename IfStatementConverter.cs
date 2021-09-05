@@ -27,7 +27,7 @@ namespace CobolToCSharp
             result.Add(SB.ToString());
             return result.ToArray();
         }
-        public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs)
+        public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, Dictionary<string, string> CobolVariablesDataTypes = null)
         {
             //string[] Separators = new string[] { " "," OR ", " AND ", "=", "(", ")", "IF", "ELSE IF" };
             Line = Line.Replace("IF", "if(").Replace("ELSE", "else").Replace("=", "==").Replace("AND", "&&").Replace("OR", "||");

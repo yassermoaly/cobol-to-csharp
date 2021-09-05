@@ -11,7 +11,7 @@ namespace CobolToCSharp
     {
         public List<StatementType> StatementTypes => new List<StatementType>(new StatementType[] { StatementType.MULTIPLY });
 
-        public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs)
+        public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, Dictionary<string,string> CobolVariablesDataTypes = null)
         {
             if(new Regex(@"MULTIPLY[ ]+([a-zA-Z0-9-]+)[ ]+BY[ ]+([a-zA-Z0-9-]+|[0-9]*.[0-9]*)[ ]+GIVING[ ]+([a-zA-Z0-9-]+)[ ROUNDED]*").IsMatch(Line))
             {
