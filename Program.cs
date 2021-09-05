@@ -22,7 +22,7 @@ namespace CobolToCSharp
         private static readonly string FileName = "sc700.cbl";
         private static readonly string NameSpace = "OSS_Domain";
      
-        //private static readonly string FileName = "DEMO.cbl";
+       // private static readonly string FileName = "DEMO.cbl";
         //private static readonly string FileName = "small.cbl";
         private static int BlockCount = 0;
         #region Regex        
@@ -202,7 +202,8 @@ namespace CobolToCSharp
                 }
             }
 
-            LastStatementIsReturn = LastStatement != null && LastStatement.Converted.Trim().StartsWith("return");
+            LastStatementIsReturn = LastStatement!=null && LastStatement.StatementType == StatementType.GOTO;
+          
         }
         
         private static int GetLevel(string s)
@@ -317,23 +318,12 @@ namespace CobolToCSharp
                         case CobolToCSharp.ParseMode.COLLECT_LINKAGE_SECTION:
                             if (!string.IsNullOrEmpty(Line.Trim()))
                             {
-                                //if (CollectSQL)
-                                //{
-                                //    if (new Regex("END-EXEC").IsMatch(Line))
-                                //    {
-                                //        CollectSQL = false;
-                                //        continue;
-                                //    }
-                                //    continue;
-                                //}
-                                //else
                                 if (new Regex("EXEC SQL.+END-EXEC").IsMatch(Line))
                                 {
                                     continue;
                                 }
                                 else if(new Regex("EXEC SQL").IsMatch(Line))
-                                {
-                                  //  CollectSQL = true;
+                                {                                  
                                     string[] IncludeLines = null;
                                     while (true)
                                     {
@@ -354,10 +344,6 @@ namespace CobolToCSharp
                                             {
                                                 IncludeLines = File.ReadAllLines(IncludeFilePath);
                                             }
-                                            else
-                                            {
-                                                int x = 1230;
-                                            }
                                         }
                                         
                                     }
@@ -375,11 +361,7 @@ namespace CobolToCSharp
                                     SBStatement.Append(" ");
                                 SBStatement.Append(Line);
                                 if (SBStatement.ToString().Trim().EndsWith("."))
-                                {
-                                    if(Line.Contains("  05 LCNCNT     PIC S9(5)V COMP-3."))
-                                    {
-                                        int asd = 1230;
-                                    }
+                                {                                  
                                     Level = GetLevel(SBStatement.ToString());
                                     if (Level != 66 && Level != 77 && Level != 88)
                                     {
@@ -423,6 +405,10 @@ namespace CobolToCSharp
                         case CobolToCSharp.ParseMode.COLLECT_PROCEDURE_DIVISION:
                             
                             Line = RemoveNumericsAtStart(Line);
+                            //if(Line.Contains("************ NEW CHECK FOR DATE **********"))
+                            //{
+                            //    int X123 = 100;
+                            //}
                             if (CollectSQL)
                             {
                                 SBStatement.Append(" ");
@@ -471,6 +457,9 @@ namespace CobolToCSharp
                             }
                             else if (RegexCOMMENT.IsMatch(Line))
                             {
+                                Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum - addedLines);
+                                StatementRowNum = RowNum;
+                                SBStatement = new StringBuilder(string.Empty);
                                 Paragraphs.Last().AddStatement(Line, RowNum - addedLines);
                             }
                             else if (RegexStatement.IsMatch(Line))
