@@ -22,7 +22,7 @@ namespace CobolToCSharp
         private static readonly string FileName = "sc700.cbl";
         private static readonly string NameSpace = "OSS_Domain";
      
-       // private static readonly string FileName = "DEMO.cbl";
+        //private static readonly string FileName = "DEMO.cbl";
         //private static readonly string FileName = "small.cbl";
         private static int BlockCount = 0;
         #region Regex        
@@ -361,7 +361,7 @@ namespace CobolToCSharp
                                     SBStatement.Append(" ");
                                 SBStatement.Append(Line);
                                 if (SBStatement.ToString().Trim().EndsWith("."))
-                                {                                  
+                                {                                              
                                     Level = GetLevel(SBStatement.ToString());
                                     if (Level != 66 && Level != 77 && Level != 88)
                                     {
@@ -386,7 +386,15 @@ namespace CobolToCSharp
                                         else if (Level < PreLevel)
                                         {
                                             ActualLevel--;
-                                            CurrentVariable = CurrentVariable.Parent;
+                                            while (true)
+                                            {
+                                                if(CurrentVariable.Level == Level)
+                                                {
+                                                    CurrentVariable = CurrentVariable.Parent;
+                                                    break;
+                                                }
+                                                CurrentVariable = CurrentVariable.Parent;
+                                            }
                                         }
 
                                         PreLevel = Level;
@@ -395,7 +403,7 @@ namespace CobolToCSharp
                                     {
                                         Parent = CurrentVariable,
                                         Raw = SBStatement.ToString(),
-                                        Level = ActualLevel.Value,
+                                        Level = Level.Value,
                                         RowNumber = RowNum-1
                                     });
                                     SBStatement = new StringBuilder();

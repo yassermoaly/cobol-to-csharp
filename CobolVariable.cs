@@ -34,12 +34,7 @@ namespace CobolToCSharp
                 {
                    
                     Match LastDigitMatch = new Regex(@"\d+[ ]+[a-zA-Z]").Matches($" {Raw.Replace("/", string.Empty)}").First();
-                    _RawWithoutLevel = Raw.Substring(LastDigitMatch.Index + LastDigitMatch.Length-2).Trim();
-                    if(_RawWithoutLevel!= new Regex(@"^[\d/ ]+").Replace(Raw, string.Empty).Trim())
-                    {
-                        int asd = 1200;
-                    }
-                    //_RawWithoutLevel = new Regex(@"^[\d/ ]+").Replace(Raw, string.Empty).Trim();
+                    _RawWithoutLevel = Raw.Substring(LastDigitMatch.Index + LastDigitMatch.Length-2).Trim();                    
                 }
 
                 return _RawWithoutLevel;
@@ -151,7 +146,7 @@ namespace CobolToCSharp
                 if (string.IsNullOrEmpty(_RawDataType)) return 0;
                 if (_RawDataType.Equals("class"))
                 {
-                    return Childs.Sum(r => r.Size);
+                    return Childs.Where(r => string.IsNullOrEmpty(r.REDEFINENAME)).Sum(r => r.Size);
                 }
 
                 _RawDataType = TransformSize(_RawDataType);               
@@ -234,7 +229,8 @@ namespace CobolToCSharp
                     foreach (var child in Parent.Childs)
                     {
                         if (child == this) break;
-                        pos += child.Size;
+                        if(string.IsNullOrEmpty(child.REDEFINENAME))
+                            pos += child.Size;
                     }
                     return pos;
                 }
@@ -257,13 +253,13 @@ namespace CobolToCSharp
                 SB.AppendLine($"        {{");
                 SB.AppendLine($"            get");
                 SB.AppendLine($"            {{");
-                SB.AppendLine($"                return $\"{string.Join("", Childs.Where(r=>!r.RawName.Equals("FILLER")).Select(c => $"{{{NamingConverter.Convert(c.RawName)}.{(c.IsString ? $"PadRight({c.Size}, ' ')" : $"ToString(){(c.DataType.Equals("double") ? ".Replace(\".\",string.Empty)" : string.Empty)}.PadLeft({(c.IsSigned ? c.Size - 1 : c.Size)}, '0'){(c.IsSigned ? $".PadLeft({c.Size},'+')" : string.Empty)}")}}}").ToArray())}\";");
+                SB.AppendLine($"                return $\"{string.Join("", Childs.Where(r=>!r.RawName.Equals("FILLER") && string.IsNullOrEmpty(r.REDEFINENAME)).Select(c => $"{{{NamingConverter.Convert(c.RawName)}.{(c.IsString ? $"PadRight({c.Size}, ' ')" : $"ToString(){(c.DataType.Equals("double") ? ".Replace(\".\",string.Empty)" : string.Empty)}.PadLeft({(c.IsSigned ? c.Size - 1 : c.Size)}, '0'){(c.IsSigned ? $".PadLeft({c.Size},'+')" : string.Empty)}")}}}").ToArray())}\";");
                 SB.AppendLine($"            }}");
                 SB.AppendLine($"            set");
                 SB.AppendLine($"            {{");
                 foreach (var child in Childs)
                 {
-                    if (child.RawName.Equals("FILLER")) continue;
+                    if (!string.IsNullOrEmpty(child.REDEFINENAME) || child.RawName.Equals("FILLER")) continue;
 
                     switch (child.DataType)
                     {

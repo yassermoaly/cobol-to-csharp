@@ -140,15 +140,17 @@ namespace CobolToCSharp
                 Match SelectStatement = new Regex("^SELECT.+FROM").Match(SelectStatementQuery);
                 string[] SelectParameters = SelectStatement.Value.Replace("SELECT",string.Empty).Replace("FROM",string.Empty).Split(',').Select(r=>r.Trim()).ToArray();
                 Query = new StringBuilder();
-                Query.AppendLine($"var {CursorName}_DR = Cursors.Get(\"{CursorName}\").Fetch();");
+                Query.AppendLine($"var {CursorName}_DR = Cursors.Get(\"{CursorName}\").Fetch(out SQLCODE);");
+                Query.AppendLine($"if ({CursorName}_DR != null)");
+                Query.AppendLine($"{{");
                 for (int h = 0; h < FillParameters.Length; h++)
                 {
                     if (new Regex("^[a-zA-Z][a-zA-Z0-9-]+$").IsMatch(SelectParameters[h]))
-                        Query.AppendLine($"{NamingConverter.Convert(FillParameters[h].Replace(":", string.Empty))} = Convert.ToInt64({CursorName}_DR[\"{SelectParameters[h]}\"]);");
+                        Query.AppendLine($"    {NamingConverter.Convert(FillParameters[h].Replace(":", string.Empty))} = Convert.ToInt64({CursorName}_DR[\"{SelectParameters[h]}\"]);");
                     else
-                        Query.AppendLine($"{NamingConverter.Convert(FillParameters[h].Replace(":", string.Empty))} = Convert.ToInt64({CursorName}_DR[\"{h}\"]);");
+                        Query.AppendLine($"    {NamingConverter.Convert(FillParameters[h].Replace(":", string.Empty))} = Convert.ToInt64({CursorName}_DR[\"{h}\"]);");
                 }
-
+                Query.AppendLine($"}}");
                 return Query.ToString();
             }
             else if (RegexOpenCursorStatement.IsMatch(Line))
