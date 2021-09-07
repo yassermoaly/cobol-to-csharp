@@ -31,8 +31,7 @@ namespace CobolToCSharp
             {
                 
                 if (string.IsNullOrEmpty(_RawWithoutLevel) && !string.IsNullOrEmpty(Raw))
-                {
-                   
+                {                  
                     Match LastDigitMatch = new Regex(@"\d+[ ]+[a-zA-Z]").Matches($" {Raw.Replace("/", string.Empty)}").First();
                     _RawWithoutLevel = Raw.Substring(LastDigitMatch.Index + LastDigitMatch.Length-2).Trim();                    
                 }
@@ -79,7 +78,7 @@ namespace CobolToCSharp
 
                 int Length = int.Parse(Match.Value.Substring(2, Match.Length - 3));
 
-                _RawDataType = $"{_RawDataType.Substring(0, Match.Index)}{String.Empty.PadLeft(Length, RepeatedCharacter)}{((Match.Index + Match.Length +1) < _RawDataType.Length ? _RawDataType.Substring(Match.Index + Match.Length + 1) : string.Empty)}";
+                _RawDataType = $"{_RawDataType.Substring(0, Match.Index)}{String.Empty.PadLeft(Length, RepeatedCharacter)}{((Match.Index + Match.Length) < _RawDataType.Length ? _RawDataType.Substring(Match.Index + Match.Length) : string.Empty)}";
             }
             return _RawDataType;
         }
@@ -138,6 +137,19 @@ namespace CobolToCSharp
                 throw new Exception($"UnRecognized Data Type {_RawDataType}");
             }
         }
+        public string PropertyDataType
+        {
+            get
+            {
+                switch (DataType)
+                {
+                    case "class":
+                        return "string";
+                    default:
+                        return DataType;
+                }                
+            }
+        }
         public int Size
         {
             get
@@ -177,22 +189,53 @@ namespace CobolToCSharp
                 return _REDEFINENAME;
             }
         }
-        private string GetRedefinedAs(List<CobolVariable> Variables, string VariableName)
+        public CobolVariable RedefineVariable
+        {
+            get
+            {
+                if (!string.IsNullOrEmpty(REDEFINENAME))
+                {
+                    return Parent.Childs.First(r => r.RawName == REDEFINENAME);
+                    //CobolVariable RootVariable = Parent;
+                    //while (true)
+                    //{
+                    //    if (RootVariable.Parent == null)
+                    //        break;
+                    //    RootVariable = RootVariable.Parent;
+                    //}
+                    //return FindVariableByName(RootVariable.Childs, REDEFINENAME);
+                }
+                return null;
+            }
+        }
+        private CobolVariable FindVariableByName(List<CobolVariable> Variables, string VariableName)
+        {
+            foreach (var Variable in Variables)
+            {
+                if (Variable.RawName == VariableName)
+                    return Variable;
+
+                if (Variable.Childs.Count > 0)
+                    return FindVariableByName(Variable.Childs, VariableName);
+            }
+
+            return null;
+        }
+        private CobolVariable GetRedefinedAs(List<CobolVariable> Variables, string VariableName)
         {
             foreach (var Variable in Variables)
             {
                 if (Variable.REDEFINENAME == VariableName)
-                    return Variable.RawName;
+                    return Variable;
 
                 if (Variable.Childs.Count > 0)
                     GetRedefinedAs(Variable.Childs, VariableName);
             }
 
-            return string.Empty;
-
+            return null;
         }
-        private string _RedefinedAs = null;
-        public string RedefinedAs
+        private CobolVariable _RedefinedAs = null;
+        public CobolVariable RedefinedAs
         {
             get
             {
@@ -223,108 +266,274 @@ namespace CobolToCSharp
         {
             get
             {
-                if (this.Parent != null)
+
+                if (string.IsNullOrEmpty(REDEFINENAME))
                 {
-                    int pos = 0;
+                    int pos = IsNull(Parent) ? 0 : Parent.StartPosition;
                     foreach (var child in Parent.Childs)
                     {
                         if (child == this) break;
-                        if(string.IsNullOrEmpty(child.REDEFINENAME))
+                        if (string.IsNullOrEmpty(child.REDEFINENAME))
                             pos += child.Size;
                     }
                     return pos;
                 }
-
-                return 0;
+                return RedefineVariable.StartPosition;               
             }
         }
+        private bool IsNull(CobolVariable Variable)
+        {
+            return Variable == null || string.IsNullOrEmpty(Variable.Raw);
+        }
+        public string GetSetPropertyName
+        {
+            get
+            {
+            
+                CobolVariable CobolVariable = this;
+                while (true)
+                {
+                    if (string.IsNullOrEmpty(CobolVariable.REDEFINENAME) && IsNull(CobolVariable.Parent))
+                        break;
+                    if (!string.IsNullOrEmpty(CobolVariable.REDEFINENAME))
+                        CobolVariable = CobolVariable.RedefineVariable;
+                    else
+                        CobolVariable = CobolVariable.Parent;
+                }
+                return $"_{NamingConverter.Convert(CobolVariable.RawName)}";
+                //if (IsNull(Parent))
+                //{
+                //    if(string.IsNullOrEmpty(REDEFINENAME))
+                //        return $"_{NamingConverter.Convert(RawName)}";
+                   
+                //    return $"{NamingConverter.Convert(RedefineVariable.RawName)}";
 
-        
-
+                //}
+                //else
+                //{
+                //    if (!string.IsNullOrEmpty(REDEFINENAME))
+                //    {
+                //        return $"{NamingConverter.Convert(RedefineVariable.RawName)}";
+                //    }
+                //    return $"{NamingConverter.Convert(Parent.RawName)}";
+                //}
+                
+            }
+        }
         public override string ToString()
         {
-           string[] ExecludedVraibles = Config.Values["ExecludedVariables"].Split(',');
+            if(RawName == "FUL-NAME")
+            {
+                int PP = StartPosition;
+            }
+            string[] ExecludedVraibles = Config.Values["ExecludedVariables"].Split(',');
             if (ExecludedVraibles.Contains(RawName)) return string.Empty;
             StringBuilder SB = new StringBuilder();
             SB.AppendLine($"        #region {RawName}");
-            if (DataType.Equals("class"))
-            {
-                SB.AppendLine($"        public string {NamingConverter.Convert(RawName)}");
-                SB.AppendLine($"        {{");
-                SB.AppendLine($"            get");
-                SB.AppendLine($"            {{");
-                SB.AppendLine($"                return $\"{string.Join("", Childs.Where(r=>!r.RawName.Equals("FILLER") && string.IsNullOrEmpty(r.REDEFINENAME)).Select(c => $"{{{NamingConverter.Convert(c.RawName)}.{(c.IsString ? $"PadRight({c.Size}, ' ')" : $"ToString(){(c.DataType.Equals("double") ? ".Replace(\".\",string.Empty)" : string.Empty)}.PadLeft({(c.IsSigned ? c.Size - 1 : c.Size)}, '0'){(c.IsSigned ? $".PadLeft({c.Size},'+')" : string.Empty)}")}}}").ToArray())}\";");
-                SB.AppendLine($"            }}");
-                SB.AppendLine($"            set");
-                SB.AppendLine($"            {{");
-                foreach (var child in Childs)
-                {
-                    if (!string.IsNullOrEmpty(child.REDEFINENAME) || child.RawName.Equals("FILLER")) continue;
+            string ParameterName = NamingConverter.Convert(RawName);
 
-                    switch (child.DataType)
-                    {
-                        case "string":
-                        case "class":
-                            SB.AppendLine($"                {NamingConverter.Convert(child.RawName)} = value.GetStringValue({child.StartPosition}, {child.Size});");
-                            break;
-                        case "long":
-                            SB.AppendLine($"                {NamingConverter.Convert(child.RawName)} = value.GetNumericValue({child.StartPosition}, {child.Size});");
-                            break;
-                        case "double":
-                            SB.AppendLine($"                {NamingConverter.Convert(child.RawName)} = value.GetDoubleValue({child.StartPosition}, {child.SizePrePoint},{child.SizePostPoint});");
-                            break;
-                        default:
-                            throw new Exception($"UnRecognized Data Type {child.DataType}");
-                    }
-                }
-                SB.AppendLine($"            }}");
-                SB.AppendLine($"         }}");
-
-            }
-            else
+            if (string.IsNullOrEmpty(REDEFINENAME) && IsNull(Parent))
             {
-                if (string.IsNullOrEmpty(RedefinedAs))
-                {
-                    SB.AppendLine($"        private string _{NamingConverter.Convert(RawName)} = {(IsString ? "string.Empty" : "\"0\"")};");
-                    SB.AppendLine($"        public {DataType} {NamingConverter.Convert(RawName)}");
-                    SB.AppendLine($"        {{");
-                    SB.AppendLine($"            get");
-                    SB.AppendLine($"            {{");
-                    if (DataType == "string")
-                        SB.AppendLine($"                return _{NamingConverter.Convert(RawName)};");
-                    else
-                        SB.AppendLine($"                return {DataType}.Parse(_{NamingConverter.Convert(RawName)}){(IsSigned ? string.Empty: ".Abs()")};");
-                    SB.AppendLine($"            }}");
-                    SB.AppendLine($"            set");
-                    SB.AppendLine($"            {{");
-                    if (DataType == "string")
-                        SB.AppendLine($"                _{NamingConverter.Convert(RawName)} = value!=null?value.ToString():string.Empty;");
-                    else
-                        SB.AppendLine($"                _{NamingConverter.Convert(RawName)} = value.ToString();");
-                    SB.AppendLine($"            }}");
-                    SB.AppendLine($"         }}");
-                }
-                else
-                {
-                    SB.AppendLine($"        public {DataType} {NamingConverter.Convert(RawName)}");
-                    SB.AppendLine($"        {{");
-                    SB.AppendLine($"            get");
-                    SB.AppendLine($"            {{");
-                    if (DataType == "string")
-                        SB.AppendLine($"                return {NamingConverter.Convert(RedefinedAs)};");
-                    else
-                        SB.AppendLine($"                return {DataType}.Parse({NamingConverter.Convert(RedefinedAs)}){(IsSigned ? ".Abs()":string.Empty)};");
-                    SB.AppendLine($"            }}");
-                    SB.AppendLine($"            set");
-                    SB.AppendLine($"            {{");
-                    SB.AppendLine($"                {NamingConverter.Convert(RedefinedAs)}=value.ToString();");
-                    SB.AppendLine($"            }}");
-                    SB.AppendLine($"         }}");
-                }
+                SB.AppendLine($"        private string _{ParameterName};");
             }
+            SB.AppendLine($"        public {PropertyDataType} {ParameterName}");
+            SB.AppendLine($"        {{");
+            SB.AppendLine($"            get");
+            SB.AppendLine($"            {{");
+            switch (PropertyDataType)
+            {
+                case "string":
+                    SB.AppendLine($"                return {GetSetPropertyName}.GetStringValue({StartPosition},{Size});");
+                    break;
+                case "long":
+                    SB.AppendLine($"                return {GetSetPropertyName}.GetLongValue({StartPosition},{Size},{IsSigned.ToString().ToLower()});");
+                    break;
+                case "double":
+                    SB.AppendLine($"                return {GetSetPropertyName}.GetDoubleValue({StartPosition},{SizePrePoint},{SizePostPoint},{IsSigned.ToString().ToLower()});");
+                    break;              
+            }
+        
+            SB.AppendLine($"            }}");
+            SB.AppendLine($"            set");
+            SB.AppendLine($"            {{");
+            switch (PropertyDataType)
+            {
+                case "string":
+                    SB.AppendLine($"                 {GetSetPropertyName} = {GetSetPropertyName}.SetStringValue(value, {StartPosition}, {Size});");
+                    break;
+                case "long":
+                    SB.AppendLine($"                 {GetSetPropertyName} = {GetSetPropertyName}.SetLongValue(value, {StartPosition}, {Size},{IsSigned.ToString().ToLower()});");
+                    break;
+                case "double":
+                    SB.AppendLine($"                 {GetSetPropertyName} = {GetSetPropertyName}.SetDoubleValue(value, {StartPosition}, {SizePrePoint}, {SizePostPoint},{IsSigned.ToString().ToLower()});");
+                    break;
+            }
+                   
+            SB.AppendLine($"            }}");
+            SB.AppendLine($"         }}");
+
+
+           
             SB.AppendLine($"        #endregion");
 
             return SB.ToString();
         }
+
+
+        //public override string ToString()
+        //{
+        //   string[] ExecludedVraibles = Config.Values["ExecludedVariables"].Split(',');
+
+        //    //if(Raw.Contains("01 CPHONENUMBER REDEFINES PHONENUMBER"))
+        //    //{
+        //    //    int x = 100;
+        //    //}
+        //    if (ExecludedVraibles.Contains(RawName)) return string.Empty;
+        //    StringBuilder SB = new StringBuilder();
+        //    SB.AppendLine($"        #region {RawName}");
+        //    if (string.IsNullOrEmpty(REDEFINENAME))
+        //    {
+        //        if(Parent == null)
+        //        {
+
+        //        }
+        //    }
+
+
+        //    if (DataType.Equals("class"))
+        //    {
+        //        SB.AppendLine($"        private string _SET_{NamingConverter.Convert(RawName)}");
+        //        SB.AppendLine($"        {{");
+        //        SB.AppendLine($"            set");
+        //        SB.AppendLine($"            {{");
+        //        foreach (var child in Childs)
+        //        {
+        //            if (!string.IsNullOrEmpty(child.REDEFINENAME) || child.RawName.Equals("FILLER")) continue;
+
+        //            switch (child.DataType)
+        //            {
+        //                case "string":
+        //                case "class":
+        //                    SB.AppendLine($"                {NamingConverter.Convert(child.RawName)} = value.GetStringValue({child.StartPosition}, {child.Size});");
+        //                    break;
+        //                case "long":
+        //                    SB.AppendLine($"                {NamingConverter.Convert(child.RawName)} = value.GetNumericValue({child.StartPosition}, {child.Size});");
+        //                    break;
+        //                case "double":
+        //                    SB.AppendLine($"                {NamingConverter.Convert(child.RawName)} = value.GetDoubleValue({child.StartPosition}, {child.SizePrePoint},{child.SizePostPoint});");
+        //                    break;
+        //                default:
+        //                    throw new Exception($"UnRecognized Data Type {child.DataType}");
+        //            }
+        //        }
+        //        SB.AppendLine($"            }}");
+        //        SB.AppendLine($"        }}");
+        //        SB.AppendLine($"        public string {NamingConverter.Convert(RawName)}");
+        //        SB.AppendLine($"        {{");
+        //        SB.AppendLine($"            get");
+        //        SB.AppendLine($"            {{");
+        //        SB.AppendLine($"                return $\"{string.Join("", Childs.Where(r=>!r.RawName.Equals("FILLER") && string.IsNullOrEmpty(r.REDEFINENAME)).Select(c => $"{{{NamingConverter.Convert(c.RawName)}.{(c.IsString ? $"PadRight({c.Size}, ' ')" : $"ToString(){(c.DataType.Equals("double") ? ".Replace(\".\",string.Empty)" : string.Empty)}.PadLeft({(c.IsSigned ? c.Size - 1 : c.Size)}, '0'){(c.IsSigned ? $".PadLeft({c.Size},'+')" : string.Empty)}")}}}").ToArray())}\";");
+        //        SB.AppendLine($"            }}");
+        //        SB.AppendLine($"            set");
+        //        SB.AppendLine($"            {{");
+        //        SB.AppendLine($"                _SET_{NamingConverter.Convert(RawName)} = value;");
+        //        if (RedefinedAs != null)
+        //        {
+        //            if (RedefinedAs.DataType == "class")
+        //                SB.AppendLine($"                _SET_{NamingConverter.Convert(RedefinedAs.RawName)} = value!=null?value.ToString():string.Empty;");
+        //            else
+        //                SB.AppendLine($"                _{NamingConverter.Convert(RedefinedAs.RawName)} = value.ToString();");
+        //        }
+        //        if (RedefineVariable != null)
+        //        {
+        //            if (RedefineVariable.DataType == "class")
+        //                SB.AppendLine($"                _SET_{NamingConverter.Convert(RedefineVariable.RawName)} = value!=null?value.ToString():string.Empty;");
+        //            else
+        //                SB.AppendLine($"                _{NamingConverter.Convert(RedefineVariable.RawName)} = value.ToString();");
+        //        }
+
+        //        SB.AppendLine($"            }}");
+        //        SB.AppendLine($"         }}");
+
+        //    }
+        //    else
+        //    {
+        //        SB.AppendLine($"        private string _{NamingConverter.Convert(RawName)} = {(IsString ? "string.Empty" : "\"0\"")};");
+        //        SB.AppendLine($"        public {DataType} {NamingConverter.Convert(RawName)}");
+        //        SB.AppendLine($"        {{");
+        //        SB.AppendLine($"            get");
+        //        SB.AppendLine($"            {{");
+        //        if (DataType == "string")
+        //            SB.AppendLine($"                return _{NamingConverter.Convert(RawName)};");
+        //        else
+        //            SB.AppendLine($"                return {DataType}.Parse(_{NamingConverter.Convert(RawName)}){(IsSigned ? string.Empty : ".Abs()")};");
+        //        SB.AppendLine($"            }}");
+        //        SB.AppendLine($"            set");
+        //        SB.AppendLine($"            {{");
+        //        if (DataType == "string")
+        //            SB.AppendLine($"                _{NamingConverter.Convert(RawName)} = value!=null?value.ToString():string.Empty;");
+        //        else
+        //            SB.AppendLine($"                _{NamingConverter.Convert(RawName)} = value.ToString();");
+
+        //        if (RedefinedAs != null)
+        //        {
+        //            if (RedefinedAs.DataType == "class")
+        //                SB.AppendLine($"                _SET_{NamingConverter.Convert(RedefinedAs.RawName)} = value!=null?value.ToString():string.Empty;");
+        //            else
+        //                SB.AppendLine($"                _{NamingConverter.Convert(RedefinedAs.RawName)} = value.ToString();");
+        //        }
+        //        if (RedefineVariable != null)
+        //        {
+        //            if (RedefineVariable.DataType == "class")
+        //                SB.AppendLine($"                _SET_{NamingConverter.Convert(RedefineVariable.RawName)} = value!=null?value.ToString():string.Empty;");
+        //            else
+        //                SB.AppendLine($"                _{NamingConverter.Convert(RedefineVariable.RawName)} = value.ToString();");
+        //        }
+        //        SB.AppendLine($"            }}");
+        //        SB.AppendLine($"         }}");
+
+        //        //if (string.IsNullOrEmpty(RedefinedAs))
+        //        //{
+        //        //    SB.AppendLine($"        private string _{NamingConverter.Convert(RawName)} = {(IsString ? "string.Empty" : "\"0\"")};");
+        //        //    SB.AppendLine($"        public {DataType} {NamingConverter.Convert(RawName)}");
+        //        //    SB.AppendLine($"        {{");
+        //        //    SB.AppendLine($"            get");
+        //        //    SB.AppendLine($"            {{");
+        //        //    if (DataType == "string")
+        //        //        SB.AppendLine($"                return _{NamingConverter.Convert(RawName)};");
+        //        //    else
+        //        //        SB.AppendLine($"                return {DataType}.Parse(_{NamingConverter.Convert(RawName)}){(IsSigned ? string.Empty: ".Abs()")};");
+        //        //    SB.AppendLine($"            }}");
+        //        //    SB.AppendLine($"            set");
+        //        //    SB.AppendLine($"            {{");
+        //        //    if (DataType == "string")
+        //        //        SB.AppendLine($"                _{NamingConverter.Convert(RawName)} = value!=null?value.ToString():string.Empty;");
+        //        //    else
+        //        //        SB.AppendLine($"                _{NamingConverter.Convert(RawName)} = value.ToString();");
+        //        //    SB.AppendLine($"            }}");
+        //        //    SB.AppendLine($"         }}");
+        //        //}
+        //        //else
+        //        //{
+        //        //    SB.AppendLine($"        public {DataType} {NamingConverter.Convert(RawName)}");
+        //        //    SB.AppendLine($"        {{");
+        //        //    SB.AppendLine($"            get");
+        //        //    SB.AppendLine($"            {{");
+        //        //    if (DataType == "string")
+        //        //        SB.AppendLine($"                return {NamingConverter.Convert(RedefinedAs)};");
+        //        //    else
+        //        //        SB.AppendLine($"                return {DataType}.Parse({NamingConverter.Convert(RedefinedAs)}){(IsSigned ? ".Abs()":string.Empty)};");
+        //        //    SB.AppendLine($"            }}");
+        //        //    SB.AppendLine($"            set");
+        //        //    SB.AppendLine($"            {{");
+        //        //    SB.AppendLine($"                {NamingConverter.Convert(RedefinedAs)}=value.ToString();");
+        //        //    SB.AppendLine($"            }}");
+        //        //    SB.AppendLine($"         }}");
+        //        //}
+        //    }
+        //    SB.AppendLine($"        #endregion");
+
+        //    return SB.ToString();
+        //}
     }
 }

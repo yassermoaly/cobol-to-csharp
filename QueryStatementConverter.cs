@@ -19,7 +19,7 @@ namespace CobolToCSharp
         private static readonly Regex RegexOpenCursorStatement = new Regex(@"^OPEN.+");
         private static readonly Regex RegexCloseCursorStatement = new Regex(@"^CLOSE.+");
         private static readonly Regex RegexDeleteStatement = new Regex(@"^DELETE.+FROM.+WHERE.+");
-        private static readonly Regex RegexSqlParameter = new Regex(":[a-zA-Z][a-zA-Z0-9-]+");
+        private static readonly Regex RegexSqlParameter = new Regex(":[ ]*[a-zA-Z][a-zA-Z0-9-]+");
         private static readonly Regex RegexFillInParameters = new Regex("INTO.+FROM");
         public List<StatementType> StatementTypes => new List<StatementType>(new StatementType[] { StatementType.QUERY });
         private string ExtractAndRenameParameters(ref string Line)
@@ -32,7 +32,7 @@ namespace CobolToCSharp
             string LineWithoutFillIn = FillParametersMatch.Value.Length == 0 ? Line : Line.Replace(FillParametersMatch.Value, string.Empty);
             foreach (Match Match in RegexSqlParameter.Matches(LineWithoutFillIn))
             {
-                string ParameterName = NamingConverter.Convert(Match.Value).Replace(":", string.Empty);
+                string ParameterName = NamingConverter.Convert(Match.Value).Replace(":", string.Empty).Trim();
                 if (!Parameters.Contains(ParameterName))
                 {
                     Query.AppendLine($"Parameters.Add(\"{ NamingConverter.Convert(ParameterName)}\", {NamingConverter.Convert(ParameterName)});");
@@ -44,21 +44,7 @@ namespace CobolToCSharp
             return Query.ToString();
         }
 
-        private static string GetVariableDataType(string Name,List<CobolVariable> Variables)
-        {
-            if (Variables != null)
-            {
-                foreach (var Variable in Variables)
-                {
-                    if (Variable.RawName.Contains(Name))
-                        return Variable.DataType;
-                    if (Variable.Childs.Count > 0)
-                        GetVariableDataType(Name, Variable.Childs);
-                }
-            }
-            return string.Empty;
-
-        }
+       
         public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, Dictionary<string,string> CobolVariablesDataTypes = null)
         {
             string OrLine = Line;
@@ -109,7 +95,7 @@ namespace CobolToCSharp
                     if (new Regex("^[a-zA-Z][a-zA-Z0-9-]+$").IsMatch(SelectParameters[h]))
                         Query.AppendLine($"    {NamingConverter.Convert(FillParameters[h].Replace("@",string.Empty))} = Convert.{ConvertType}(DT.Rows[0][\"{SelectParameters[h]}\"]);");
                     else
-                        Query.AppendLine($"    {NamingConverter.Convert(FillParameters[h].Replace("@", string.Empty))} = Convert.{ConvertType}(DT.Rows[0][\"{h}\"]);");
+                        Query.AppendLine($"    {NamingConverter.Convert(FillParameters[h].Replace("@", string.Empty))} = Convert.{ConvertType}(DT.Rows[0][{h}]);");
                 }
                 Query.AppendLine("}");
                 return Query.ToString();
@@ -148,7 +134,7 @@ namespace CobolToCSharp
                     if (new Regex("^[a-zA-Z][a-zA-Z0-9-]+$").IsMatch(SelectParameters[h]))
                         Query.AppendLine($"    {NamingConverter.Convert(FillParameters[h].Replace(":", string.Empty))} = Convert.ToInt64({CursorName}_DR[\"{SelectParameters[h]}\"]);");
                     else
-                        Query.AppendLine($"    {NamingConverter.Convert(FillParameters[h].Replace(":", string.Empty))} = Convert.ToInt64({CursorName}_DR[\"{h}\"]);");
+                        Query.AppendLine($"    {NamingConverter.Convert(FillParameters[h].Replace(":", string.Empty))} = Convert.ToInt64({CursorName}_DR[{h}]);");
                 }
                 Query.AppendLine($"}}");
                 return Query.ToString();
