@@ -18,7 +18,7 @@ namespace CobolToCSharp
         private static readonly Regex RegexFetchCursorStatement = new Regex(@"^FETCH.+INTO.+");
         private static readonly Regex RegexOpenCursorStatement = new Regex(@"^OPEN.+");
         private static readonly Regex RegexCloseCursorStatement = new Regex(@"^CLOSE.+");
-        private static readonly Regex RegexDeleteStatement = new Regex(@"^DELETE.+FROM.+WHERE.+");
+        private static readonly Regex RegexDeleteStatement = new Regex(@"^DELETE.+(FROM)*.+WHERE.+");
         private static readonly Regex RegexSqlParameter = new Regex(":[ ]*[a-zA-Z][a-zA-Z0-9-]+");
         private static readonly Regex RegexFillInParameters = new Regex("INTO.+FROM");
         public List<StatementType> StatementTypes => new List<StatementType>(new StatementType[] { StatementType.QUERY });
@@ -64,7 +64,7 @@ namespace CobolToCSharp
                 
 
                 Query.AppendLine($"SQL = \"{Line}\";");
-                Query.AppendLine($"DT = DBOPEARATION.DBExecuteDT(SQL, ConnStrOracle, DT,Parameters,out SQLCODE);");
+                Query.AppendLine($"DT = DBOPEARATION.ExecuteDT(SQL,Parameters,out SQLCODE);");
 
 
                 string[] FillParameters = FillParametersMatch.Value.Substring(4, FillParametersMatch.Value.Length - 8).Replace(":",string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries).Select(r=>r.Trim()).ToArray();
@@ -92,10 +92,13 @@ namespace CobolToCSharp
                             ConvertType = "ToInt64";
                             break;
                     }
-                    if (new Regex("^[a-zA-Z][a-zA-Z0-9-]+$").IsMatch(SelectParameters[h]))
-                        Query.AppendLine($"    {NamingConverter.Convert(FillParameters[h].Replace("@",string.Empty))} = Convert.{ConvertType}(DT.Rows[0][\"{SelectParameters[h]}\"]);");
-                    else
-                        Query.AppendLine($"    {NamingConverter.Convert(FillParameters[h].Replace("@", string.Empty))} = Convert.{ConvertType}(DT.Rows[0][{h}]);");
+                    string ColumnName = new Regex("^[a-zA-Z][a-zA-Z0-9-]+$").IsMatch(SelectParameters[h]) ? $"\"{SelectParameters[h]}\"" : $"{h}";
+                    Query.AppendLine($"    if(DT.Rows[0][{ColumnName}]!=DBNull.Value)");
+                    Query.AppendLine($"        {NamingConverter.Convert(FillParameters[h].Replace("@", string.Empty))} = Convert.{ConvertType}(DT.Rows[0][{ColumnName}]);");
+                    //if (new Regex("^[a-zA-Z][a-zA-Z0-9-]+$").IsMatch(SelectParameters[h]))
+                    //    Query.AppendLine($"    {NamingConverter.Convert(FillParameters[h].Replace("@",string.Empty))} = Convert.{ConvertType}(DT.Rows[0][\"{SelectParameters[h]}\"]);");
+                    //else
+                        
                 }
                 Query.AppendLine("}");
                 return Query.ToString();
@@ -103,7 +106,7 @@ namespace CobolToCSharp
             else if (RegexInsertStatement.IsMatch(Line) || RegexUpdateStatement.IsMatch(Line) || RegexDeleteStatement.IsMatch(Line))
             {             
                 Query.AppendLine($"SQL = \"{Line}\";");
-                Query.AppendLine($"DT = DBOPEARATION.DBExecuteDT(SQL, ConnStrOracle, DT,Parameters,out SQLCODE);");
+                Query.AppendLine($"DBOPEARATION.ExecuteQuery(SQL,Parameters,out SQLCODE);");
                 return Query.ToString();
             }
             

@@ -20,8 +20,9 @@ namespace CobolToCSharp
         
         private static readonly string WorkingDir = @"input";
         private static readonly string FileName = "sc700.cbl";
+        //private static readonly string FileName = "sc499.cbl";
+        //private static readonly string FileName = "DEMO.cbl";
         private static readonly string NameSpace = "OSS_Domain";
-     
         //private static readonly string FileName = "DEMO.cbl";
         //private static readonly string FileName = "small.cbl";
         private static int BlockCount = 0;
@@ -110,15 +111,19 @@ namespace CobolToCSharp
 
         private static void ConvertParagraphs(List<Paragraph> Paragraphs, Dictionary<string, string> DataTypes)
         {
+            string ClassName = FileName.Replace(".cbl", string.Empty);
+            if (!Directory.Exists($@"{WorkingDir}\{ClassName}"))
+            {
+                Directory.CreateDirectory($@"{WorkingDir}\{ClassName}");
+            }
             List<CobolVariable> CobolVariables = new List<CobolVariable>(WORKING_STORAGE_VARIABLE.Childs.ToArray());
             CobolVariables.AddRange(LINKAGE_SECTION_VARIABLE.Childs);
             
             foreach (var Paragraph in Paragraphs)
             {
                 SetBlocks(Paragraph);               
-            }
-            string ClassName = FileName.Replace(".cbl", string.Empty);
-            using (StreamWriter CodeWriter = new StreamWriter($@"{WorkingDir}\{ClassName}.cs"))
+            }            
+            using (StreamWriter CodeWriter = new StreamWriter($@"{WorkingDir}\{ClassName}\{ClassName}.cs"))
             {
                 CodeWriter.WriteLine($"using System;");
                 CodeWriter.WriteLine($"using System.Collections.Generic;");
@@ -127,10 +132,10 @@ namespace CobolToCSharp
                 CodeWriter.WriteLine($"using System.Threading.Tasks;");
                 CodeWriter.WriteLine($"namespace {NameSpace}");
                 CodeWriter.WriteLine("{");
-                CodeWriter.WriteLine($"    public class {ClassName} : {ClassName}Variables {{");                                
+                CodeWriter.WriteLine($"    public partial class {ClassName} {{");                                
                 using (StreamWriter LogWriter = new StreamWriter($@"{WorkingDir}\compare-result.log"))
                 {
-                    CodeWriter.WriteLine($"        public void Run()");
+                    CodeWriter.WriteLine($"        public virtual void Run()");
                     CodeWriter.WriteLine($"        {{");
                     CodeWriter.WriteLine($"            {NamingConverter.Convert(Paragraphs.First().Name)}(true,true);");                    
                     CodeWriter.WriteLine($"        }}");
@@ -186,6 +191,7 @@ namespace CobolToCSharp
                     if (Statement.StatementType == StatementType.BEGIN_BLOCK)
                         TAP_Level++;
 
+
                     //CodeWriter.WriteLine($"{TAPSPACES}//******************************************************");
                     //CodeWriter.WriteLine($"{TAPSPACES}//{Statement.Raw}");
                     //CodeWriter.WriteLine($"{TAPSPACES}//******************************************************");
@@ -212,11 +218,17 @@ namespace CobolToCSharp
         }
         private static Dictionary<string,string> WriteAllVariables(List<CobolVariable> WORKING_STORAGE_VARIABLES, List<CobolVariable> LINKAGE_SECTION_VARIABLES)
         {
+            string ClassName = FileName.Replace(".cbl", string.Empty);
+            if (!Directory.Exists($@"{WorkingDir}\{ClassName}"))
+            {
+                Directory.CreateDirectory($@"{WorkingDir}\{ClassName}");
+            }
+
             Dictionary<string, string> DataTypes = new Dictionary<string, string>();
             Console.WriteLine("Write Variables");
-            string ClassName = FileName.Replace(".cbl", string.Empty);
+           
 
-            using (StreamWriter CodeWriter = new StreamWriter($@"{WorkingDir}\{ClassName}Variables.cs"))
+            using (StreamWriter CodeWriter = new StreamWriter($@"{WorkingDir}\{ClassName}\{ClassName}Variables.cs"))
             {
                 CodeWriter.WriteLine($"using System;");
                 CodeWriter.WriteLine($"using System.Collections.Generic;");
@@ -225,7 +237,7 @@ namespace CobolToCSharp
                 CodeWriter.WriteLine($"using System.Threading.Tasks;");
                 CodeWriter.WriteLine($"namespace {NameSpace}");
                 CodeWriter.WriteLine($"{{");
-                CodeWriter.WriteLine($"    public class {ClassName}Variables : BaseBusiness");
+                CodeWriter.WriteLine($"    public partial class {ClassName} : BaseBusiness");
                 CodeWriter.WriteLine($"    {{");
                 HashSet<string> ProcessedVariables = new HashSet<string>();
                 DataTypes.Merge<string,string>(WriterVariables(WORKING_STORAGE_VARIABLES, CodeWriter, ProcessedVariables));

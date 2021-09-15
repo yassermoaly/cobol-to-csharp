@@ -105,7 +105,7 @@ namespace CobolToCSharp
 
         public void AddStatement(string Statement,int RowNo)
         {
-            if (!string.IsNullOrEmpty(Statement))
+            if (!string.IsNullOrEmpty(Statement.Trim()))
             {
                 Statements.Add(new Statement()
                 {

@@ -14,4 +14,8 @@
     <PackageReference Include="Ninject" Version="3.3.4" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="ExtraClasses\" />
+  </ItemGroup>
+
 </Project>

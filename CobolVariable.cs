@@ -112,11 +112,12 @@ namespace CobolToCSharp
         {
             get
             {
-
+               
                 if (string.IsNullOrEmpty(Raw))
                     return string.Empty;
 
-                
+            
+
                 string _RawDataType = RawDataType;
                 if(_RawDataType == "class")
                 {
@@ -141,9 +142,15 @@ namespace CobolToCSharp
         {
             get
             {
+                
+
                 switch (DataType)
                 {
                     case "class":
+                        if (!string.IsNullOrEmpty(REDEFINENAME))
+                        {
+                            return RedefineVariable.PropertyDataType;
+                        }
                         return "string";
                     default:
                         return DataType;
