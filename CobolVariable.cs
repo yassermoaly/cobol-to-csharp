@@ -11,9 +11,9 @@ namespace CobolToCSharp
     public class CobolVariable
     {
 
-        static Regex RegexNumeric = new Regex(@"^(S9+|9+)((V9*)*|(\.9*)*)$");
-        static Regex RegexAlphaNumberic = new Regex(@"^X+$");
-        static Regex RegexAlphabetic = new Regex(@"^A+$");
+        static Regex RegexNumeric = new Regex(@"^([Ss]9+|9+)(([Vv]9*)*|(\.9*)*)$");
+        static Regex RegexAlphaNumberic = new Regex(@"^[Xx]+$");
+        static Regex RegexAlphabetic = new Regex(@"^[Aa]+$");
 
         public CobolVariable()
         {
@@ -57,14 +57,14 @@ namespace CobolToCSharp
                 if (Childs.Count > 0)
                     return "class";
 
-                return new Regex(@"PIC[ ]+.+?(?=(\.| ))").Match(Raw).Value.Replace("PIC",string.Empty).Trim();
+                return new Regex($@"{"PIC".RegexUpperLower()}[ ]+.+?(?=(\.| ))").Match(Raw).Value.RegexReplace("PIC",string.Empty).Trim();
             }
         }
         public bool IsSigned
         {
             get
             {
-                return RawDataType.StartsWith("S9");
+                return RawDataType.StartsWith("[Ss]9");
             }
         }
         private string TransformSize(string _RawDataType)
@@ -72,7 +72,7 @@ namespace CobolToCSharp
             Match Match;
             while (true)
             {
-                Match = new Regex(@"(9|X|A)\([0-9]+\)").Match(_RawDataType);
+                Match = new Regex(@"(9|[Xx]|[Aa])\([0-9]+\)").Match(_RawDataType);
                 if (Match.Captures.Count == 0) break;
                 char RepeatedCharacter = Match.Value[0];
 
@@ -88,7 +88,7 @@ namespace CobolToCSharp
             {
                 string _RawDataType = TransformSize(RawDataType).ToLower();
                 char pointChar = 'v';
-                if (!_RawDataType.Contains(pointChar)) pointChar = '.';
+                if (!_RawDataType.ToLower().Contains(pointChar)) pointChar = '.';
                 int index = _RawDataType.IndexOf(pointChar);
                 if (index >= 0)
                     return index;
@@ -111,26 +111,23 @@ namespace CobolToCSharp
         public string DataType
         {
             get
-            {
-               
+            {               
                 if (string.IsNullOrEmpty(Raw))
                     return string.Empty;
-
-            
 
                 string _RawDataType = RawDataType;
                 if(_RawDataType == "class")
                 {
                     return "class";
                 }
-                if (_RawDataType.StartsWith("9")|| _RawDataType.StartsWith("S9"))
+                if (_RawDataType.StartsWith("9")|| _RawDataType.ToLower().StartsWith("s9"))
                 {
                     if (!_RawDataType.ToLower().EndsWith("v") && (_RawDataType.ToLower().Contains("v") || _RawDataType.ToLower().Contains(".")))
                         return "double";
                     return "long";
                 }
                 
-                else if (_RawDataType.StartsWith("X") || _RawDataType.StartsWith("A"))
+                else if (_RawDataType.ToLower().StartsWith("x") || _RawDataType.ToLower().StartsWith("a"))
                 {
                     return "string";
                 }
@@ -174,7 +171,7 @@ namespace CobolToCSharp
                 {
                     return _RawDataType.Replace("V", string.Empty).Replace("v", string.Empty).Length;
                 }
-
+                _RawDataType = RawDataType;
                 throw new Exception($"UnRecognized Data Type {_RawDataType}");                
             }
         }
@@ -189,8 +186,8 @@ namespace CobolToCSharp
             {
                 if (_REDEFINENAME == null)
                 {
-                    Match REDEFINESMatch = new Regex("REDEFINES[ ]+[a-zA-Z0-9-]+").Match(Raw);
-                    _REDEFINENAME =  REDEFINESMatch.Success ? REDEFINESMatch.Value.ToString().Replace("REDEFINES", string.Empty).Trim() : string.Empty;
+                    Match REDEFINESMatch = new Regex($"{"REDEFINES".RegexUpperLower()}[ ]+[a-zA-Z0-9-]+").Match(Raw);
+                    _REDEFINENAME =  REDEFINESMatch.Success ? REDEFINESMatch.Value.ToString().RegexReplace("REDEFINES", string.Empty).Trim() : string.Empty;
                 }
 
                 return _REDEFINENAME;
@@ -328,11 +325,7 @@ namespace CobolToCSharp
             }
         }
         public override string ToString()
-        {
-            if(RawName == "FUL-NAME")
-            {
-                int PP = StartPosition;
-            }
+        {           
             string[] ExecludedVraibles = Config.Values["ExecludedVariables"].Split(',');
             if (ExecludedVraibles.Contains(RawName)) return string.Empty;
             StringBuilder SB = new StringBuilder();
@@ -384,163 +377,6 @@ namespace CobolToCSharp
             SB.AppendLine($"        #endregion");
 
             return SB.ToString();
-        }
-
-
-        //public override string ToString()
-        //{
-        //   string[] ExecludedVraibles = Config.Values["ExecludedVariables"].Split(',');
-
-        //    //if(Raw.Contains("01 CPHONENUMBER REDEFINES PHONENUMBER"))
-        //    //{
-        //    //    int x = 100;
-        //    //}
-        //    if (ExecludedVraibles.Contains(RawName)) return string.Empty;
-        //    StringBuilder SB = new StringBuilder();
-        //    SB.AppendLine($"        #region {RawName}");
-        //    if (string.IsNullOrEmpty(REDEFINENAME))
-        //    {
-        //        if(Parent == null)
-        //        {
-
-        //        }
-        //    }
-
-
-        //    if (DataType.Equals("class"))
-        //    {
-        //        SB.AppendLine($"        private string _SET_{NamingConverter.Convert(RawName)}");
-        //        SB.AppendLine($"        {{");
-        //        SB.AppendLine($"            set");
-        //        SB.AppendLine($"            {{");
-        //        foreach (var child in Childs)
-        //        {
-        //            if (!string.IsNullOrEmpty(child.REDEFINENAME) || child.RawName.Equals("FILLER")) continue;
-
-        //            switch (child.DataType)
-        //            {
-        //                case "string":
-        //                case "class":
-        //                    SB.AppendLine($"                {NamingConverter.Convert(child.RawName)} = value.GetStringValue({child.StartPosition}, {child.Size});");
-        //                    break;
-        //                case "long":
-        //                    SB.AppendLine($"                {NamingConverter.Convert(child.RawName)} = value.GetNumericValue({child.StartPosition}, {child.Size});");
-        //                    break;
-        //                case "double":
-        //                    SB.AppendLine($"                {NamingConverter.Convert(child.RawName)} = value.GetDoubleValue({child.StartPosition}, {child.SizePrePoint},{child.SizePostPoint});");
-        //                    break;
-        //                default:
-        //                    throw new Exception($"UnRecognized Data Type {child.DataType}");
-        //            }
-        //        }
-        //        SB.AppendLine($"            }}");
-        //        SB.AppendLine($"        }}");
-        //        SB.AppendLine($"        public string {NamingConverter.Convert(RawName)}");
-        //        SB.AppendLine($"        {{");
-        //        SB.AppendLine($"            get");
-        //        SB.AppendLine($"            {{");
-        //        SB.AppendLine($"                return $\"{string.Join("", Childs.Where(r=>!r.RawName.Equals("FILLER") && string.IsNullOrEmpty(r.REDEFINENAME)).Select(c => $"{{{NamingConverter.Convert(c.RawName)}.{(c.IsString ? $"PadRight({c.Size}, ' ')" : $"ToString(){(c.DataType.Equals("double") ? ".Replace(\".\",string.Empty)" : string.Empty)}.PadLeft({(c.IsSigned ? c.Size - 1 : c.Size)}, '0'){(c.IsSigned ? $".PadLeft({c.Size},'+')" : string.Empty)}")}}}").ToArray())}\";");
-        //        SB.AppendLine($"            }}");
-        //        SB.AppendLine($"            set");
-        //        SB.AppendLine($"            {{");
-        //        SB.AppendLine($"                _SET_{NamingConverter.Convert(RawName)} = value;");
-        //        if (RedefinedAs != null)
-        //        {
-        //            if (RedefinedAs.DataType == "class")
-        //                SB.AppendLine($"                _SET_{NamingConverter.Convert(RedefinedAs.RawName)} = value!=null?value.ToString():string.Empty;");
-        //            else
-        //                SB.AppendLine($"                _{NamingConverter.Convert(RedefinedAs.RawName)} = value.ToString();");
-        //        }
-        //        if (RedefineVariable != null)
-        //        {
-        //            if (RedefineVariable.DataType == "class")
-        //                SB.AppendLine($"                _SET_{NamingConverter.Convert(RedefineVariable.RawName)} = value!=null?value.ToString():string.Empty;");
-        //            else
-        //                SB.AppendLine($"                _{NamingConverter.Convert(RedefineVariable.RawName)} = value.ToString();");
-        //        }
-
-        //        SB.AppendLine($"            }}");
-        //        SB.AppendLine($"         }}");
-
-        //    }
-        //    else
-        //    {
-        //        SB.AppendLine($"        private string _{NamingConverter.Convert(RawName)} = {(IsString ? "string.Empty" : "\"0\"")};");
-        //        SB.AppendLine($"        public {DataType} {NamingConverter.Convert(RawName)}");
-        //        SB.AppendLine($"        {{");
-        //        SB.AppendLine($"            get");
-        //        SB.AppendLine($"            {{");
-        //        if (DataType == "string")
-        //            SB.AppendLine($"                return _{NamingConverter.Convert(RawName)};");
-        //        else
-        //            SB.AppendLine($"                return {DataType}.Parse(_{NamingConverter.Convert(RawName)}){(IsSigned ? string.Empty : ".Abs()")};");
-        //        SB.AppendLine($"            }}");
-        //        SB.AppendLine($"            set");
-        //        SB.AppendLine($"            {{");
-        //        if (DataType == "string")
-        //            SB.AppendLine($"                _{NamingConverter.Convert(RawName)} = value!=null?value.ToString():string.Empty;");
-        //        else
-        //            SB.AppendLine($"                _{NamingConverter.Convert(RawName)} = value.ToString();");
-
-        //        if (RedefinedAs != null)
-        //        {
-        //            if (RedefinedAs.DataType == "class")
-        //                SB.AppendLine($"                _SET_{NamingConverter.Convert(RedefinedAs.RawName)} = value!=null?value.ToString():string.Empty;");
-        //            else
-        //                SB.AppendLine($"                _{NamingConverter.Convert(RedefinedAs.RawName)} = value.ToString();");
-        //        }
-        //        if (RedefineVariable != null)
-        //        {
-        //            if (RedefineVariable.DataType == "class")
-        //                SB.AppendLine($"                _SET_{NamingConverter.Convert(RedefineVariable.RawName)} = value!=null?value.ToString():string.Empty;");
-        //            else
-        //                SB.AppendLine($"                _{NamingConverter.Convert(RedefineVariable.RawName)} = value.ToString();");
-        //        }
-        //        SB.AppendLine($"            }}");
-        //        SB.AppendLine($"         }}");
-
-        //        //if (string.IsNullOrEmpty(RedefinedAs))
-        //        //{
-        //        //    SB.AppendLine($"        private string _{NamingConverter.Convert(RawName)} = {(IsString ? "string.Empty" : "\"0\"")};");
-        //        //    SB.AppendLine($"        public {DataType} {NamingConverter.Convert(RawName)}");
-        //        //    SB.AppendLine($"        {{");
-        //        //    SB.AppendLine($"            get");
-        //        //    SB.AppendLine($"            {{");
-        //        //    if (DataType == "string")
-        //        //        SB.AppendLine($"                return _{NamingConverter.Convert(RawName)};");
-        //        //    else
-        //        //        SB.AppendLine($"                return {DataType}.Parse(_{NamingConverter.Convert(RawName)}){(IsSigned ? string.Empty: ".Abs()")};");
-        //        //    SB.AppendLine($"            }}");
-        //        //    SB.AppendLine($"            set");
-        //        //    SB.AppendLine($"            {{");
-        //        //    if (DataType == "string")
-        //        //        SB.AppendLine($"                _{NamingConverter.Convert(RawName)} = value!=null?value.ToString():string.Empty;");
-        //        //    else
-        //        //        SB.AppendLine($"                _{NamingConverter.Convert(RawName)} = value.ToString();");
-        //        //    SB.AppendLine($"            }}");
-        //        //    SB.AppendLine($"         }}");
-        //        //}
-        //        //else
-        //        //{
-        //        //    SB.AppendLine($"        public {DataType} {NamingConverter.Convert(RawName)}");
-        //        //    SB.AppendLine($"        {{");
-        //        //    SB.AppendLine($"            get");
-        //        //    SB.AppendLine($"            {{");
-        //        //    if (DataType == "string")
-        //        //        SB.AppendLine($"                return {NamingConverter.Convert(RedefinedAs)};");
-        //        //    else
-        //        //        SB.AppendLine($"                return {DataType}.Parse({NamingConverter.Convert(RedefinedAs)}){(IsSigned ? ".Abs()":string.Empty)};");
-        //        //    SB.AppendLine($"            }}");
-        //        //    SB.AppendLine($"            set");
-        //        //    SB.AppendLine($"            {{");
-        //        //    SB.AppendLine($"                {NamingConverter.Convert(RedefinedAs)}=value.ToString();");
-        //        //    SB.AppendLine($"            }}");
-        //        //    SB.AppendLine($"         }}");
-        //        //}
-        //    }
-        //    SB.AppendLine($"        #endregion");
-
-        //    return SB.ToString();
-        //}
+        }       
     }
 }

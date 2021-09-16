@@ -30,12 +30,12 @@ namespace CobolToCSharp
         public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, Dictionary<string, string> CobolVariablesDataTypes = null)
         {
             //string[] Separators = new string[] { " "," OR ", " AND ", "=", "(", ")", "IF", "ELSE IF" };
-            Line = Line.Replace("IF", "if(").Replace("ELSE", "else").Replace("=", "==").Replace("AND", "&&").Replace("OR", "||");
+            Line = Line.RegexReplace("IF", "if(").RegexReplace("ELSE", "else").Replace("=", "==").RegexReplace("AND", "&&").RegexReplace("OR", "||");
             foreach (var item in CobolVariable.Matches(Line))
             {
                 Line = Line.Replace(item.ToString(), NamingConverter.Convert(item.ToString()));
             }
-            foreach (var item in new Regex("NOT[ ]*=[ ]*=").Matches(Line))
+            foreach (var item in new Regex($"{"NOT".RegexUpperLower()}[ ]*=[ ]*=").Matches(Line))
             {
                 Line = Line.Replace(item.ToString(), "!=");
             }

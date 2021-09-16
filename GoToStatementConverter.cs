@@ -13,17 +13,22 @@ namespace CobolToCSharp
 
         public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, Dictionary<string,string> CobolVariablesDataTypes = null)
         {
-            if (new Regex("^GO[ ]+TO[ ]+[a-zA-Z0-9-]+").IsMatch(Line))
+            if (new Regex($"^{"GO".RegexUpperLower()}[ ]+({"TO".RegexUpperLower()}[ ]+)*[a-zA-Z0-9-]+").IsMatch(Line))
             {
                 StringBuilder SB = new StringBuilder();
                 SB.AppendLine($"#region {Line}");
-                string[] Tokens = Line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                if (Tokens.Length == 3)
+                string FunctionName = Line.RegexReplace("GO", string.Empty).RegexReplace("TO", string.Empty).Replace(".", string.Empty).Trim();
+                if (!string.IsNullOrEmpty(FunctionName))
                 {                    
-                    SB.AppendLine($"return {NamingConverter.Convert(Tokens[2].Replace(".",string.Empty))}(false,true);");                   
+                    SB.AppendLine($"return {NamingConverter.Convert(FunctionName)}(false,true);");
+                    SB.AppendLine($"#endregion");
+                    return SB.ToString();
                 }
-                SB.AppendLine($"#endregion");
-                return SB.ToString();
+                else
+                {
+                    throw new Exception($"Invalid {StatementTypes.First().ToString()} Statement, {Line}");
+                }
+               
             }
             throw new Exception($"Invalid {StatementTypes.First().ToString()} Statement, {Line}");
             

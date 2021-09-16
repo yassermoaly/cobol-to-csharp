@@ -13,11 +13,11 @@ namespace CobolToCSharp
 
         public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, Dictionary<string,string> CobolVariablesDataTypes = null)
         {
-            if(new Regex("PERFORM[ ]+[a-zA-Z0-9-]+[ ]+THRU[ ]+[a-zA-Z0-9-]+").IsMatch(Line))
+            if(new Regex($"{"PERFORM".RegexUpperLower()}[ ]+[a-zA-Z0-9-]+[ ]+{"THRU".RegexUpperLower()}[ ]+[a-zA-Z0-9-]+").IsMatch(Line))
             {
                 StringBuilder SB = new StringBuilder();
-                Match TokensMatch = new Regex("PERFORM[ ]+[a-zA-Z0-9-]+[ ]+THRU[ ]+[a-zA-Z0-9-]+").Match(Line);
-                string[] Tokens = TokensMatch.Value.Replace("PERFORM", string.Empty).Replace("THRU", string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(r => r.Trim().Replace(".",string.Empty)).ToArray();
+                Match TokensMatch = new Regex($"{"PERFORM".RegexUpperLower()}[ ]+[a-zA-Z0-9-]+[ ]+{"THRU".RegexUpperLower()}[ ]+[a-zA-Z0-9-]+").Match(Line);
+                string[] Tokens = TokensMatch.Value.RegexReplace("PERFORM", string.Empty).RegexReplace("THRU", string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(r => r.Trim().Replace(".",string.Empty)).ToArray();
                 bool Append = false;
                 SB.AppendLine($"#region Preform {Tokens[0]} THRU {Tokens[1]}");
                 foreach (var P in Paragraphs)
@@ -41,21 +41,21 @@ namespace CobolToCSharp
                 SB.AppendLine($"#endregion");
                 return SB.ToString();
             }
-            else if(new Regex("PERFORM[ ]+[a-zA-Z0-9-]+[ ]+UNTIL.+").IsMatch(Line))
+            else if(new Regex($"{"PERFORM".RegexUpperLower()}[ ]+[a-zA-Z0-9-]+[ ]+{"UNTIL".RegexUpperLower()}.+").IsMatch(Line))
             {
                 StringBuilder SB = new StringBuilder();
-                Match PERFORM_NAME_MATCH = new Regex("PERFORM[ ]+[a-zA-Z0-9-]+[ ]+UNTIL").Match(Line);
-                string PerformName = NamingConverter.Convert(PERFORM_NAME_MATCH.Value.Replace("PERFORM", string.Empty).Replace("UNTIL", string.Empty).Trim());
+                Match PERFORM_NAME_MATCH = new Regex($"{"PERFORM".RegexUpperLower()}[ ]+[a-zA-Z0-9-]+[ ]+{"UNTIL".RegexUpperLower()}").Match(Line);
+                string PerformName = NamingConverter.Convert(PERFORM_NAME_MATCH.Value.RegexReplace("PERFORM", string.Empty).RegexReplace("UNTIL", string.Empty).Trim());
                 string Condition = Line.Substring(PERFORM_NAME_MATCH.Length);
                 if (Condition.EndsWith(".")) 
                     Condition = Condition.Substring(0, Condition.Length - 1);
-                 Condition = Condition.Replace("=", "==").Replace("AND", "&&").Replace("OR", "||");
+                 Condition = Condition.Replace("=", "==").RegexReplace("AND", "&&").RegexReplace("OR", "||");
                  Regex CobolVariable = new Regex("[a-zA-Z]+[-][a-zA-Z0-9-]*");
                 foreach (Match item in CobolVariable.Matches(Condition))
                 {
                     Condition = Condition.Replace(item.ToString(), NamingConverter.Convert(item.ToString()));
                 }
-                foreach (var item in new Regex("NOT[ ]*=[ ]*=").Matches(Condition))
+                foreach (var item in new Regex($"{"NOT".RegexUpperLower()}[ ]*=[ ]*=").Matches(Condition))
                 {
                     Condition = Condition.Replace(item.ToString(), "!=");
                 }
@@ -87,10 +87,10 @@ namespace CobolToCSharp
                 return SB.ToString();
 
             }
-            else if(new Regex(@"PERFORM[ ]+[a-zA-Z0-9-]+\.*").IsMatch(Line))
+            else if(new Regex($@"{"PERFORM".RegexUpperLower()}[ ]+[a-zA-Z0-9-]+\.*").IsMatch(Line))
             {
                 StringBuilder SB = new StringBuilder();
-                string PerformName = NamingConverter.Convert(Line.Replace("PERFORM", string.Empty).Replace(".", string.Empty).Trim());
+                string PerformName = NamingConverter.Convert(Line.RegexReplace("PERFORM", string.Empty).Replace(".", string.Empty).Trim());
                 SB.AppendLine($"#region {Line}");
                 SB.AppendLine($"if(!{PerformName}(true)){{return false;}}");
                 SB.AppendLine($"#endregion");

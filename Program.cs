@@ -19,8 +19,8 @@ namespace CobolToCSharp
     {
         
         private static readonly string WorkingDir = @"input";
-        private static readonly string FileName = "sc700.cbl";
-        //private static readonly string FileName = "sc499.cbl";
+        //private static readonly string FileName = "sc700.cbl";
+        private static readonly string FileName = "sc499.cbl";
         //private static readonly string FileName = "DEMO.cbl";
         private static readonly string NameSpace = "OSS_Domain";
         //private static readonly string FileName = "DEMO.cbl";
@@ -28,7 +28,7 @@ namespace CobolToCSharp
         private static int BlockCount = 0;
         #region Regex        
         private static Regex RegexCOMMENT = new Regex(@"^\*");
-        private static string StringRegexStatement = "(MOVE|IF|ELSE[ ]+IF|END-IF|PERFORM|ELSE|DISPLAY|ADD|SUBTRACT|COMPUTE|CALL|DIVIDE|MULTIPLY|GO[ ]+TO|EXIT[ ]+PROGRAM|END[ ]+PROGRAM)";
+        private static string StringRegexStatement = "(MOVE|IF|ELSE[ ]+IF|END-IF|PERFORM|ELSE|DISPLAY|ADD|SUBTRACT|COMPUTE|CALL|DIVIDE|MULTIPLY|GO[ ]+TO|GO[ ]+|EXIT[ ]+PROGRAM|END[ ]+PROGRAM)".RegexUpperLower();
         private static Regex RegexStatement = new Regex($"^{StringRegexStatement}");
         private static Regex RegexContainsStatement = new Regex($"{StringRegexStatement}");
         private static readonly Regex ParagraphRegex = new Regex(@"^[a-zA-Z0-9-_]+\.$");
@@ -38,7 +38,8 @@ namespace CobolToCSharp
         private static CobolVariable LINKAGE_SECTION_VARIABLE = new CobolVariable();
 
         static void Main(string[] args)
-        {           
+        {
+
             DateTime SD = DateTime.Now;
             Console.WriteLine("Start Processing...");
             Parse(FileName);
@@ -175,6 +176,11 @@ namespace CobolToCSharp
             {
                 Statement.CobolVariablesDataTypes = DataTypes;
 
+                if(Statement.Converted.Equals("SQLCODE = GO = UPDT_TAB29 = ZERO;"))
+                {
+                    string asd = Statement.Converted;
+                }
+
                 if (!string.IsNullOrEmpty(Statement.Converted.Trim()))
                 {
                     if (Statement.StatementType == StatementType.END_BLOCK)
@@ -285,7 +291,7 @@ namespace CobolToCSharp
             string Line = string.Empty;
             int addedLines = 0;
             ParseMode ParseMode = ParseMode.NONE;
-
+            int IncludeCount = 0;
            
             CobolVariable CurrentVariable = new CobolVariable();
             
@@ -355,7 +361,14 @@ namespace CobolToCSharp
                                             if (File.Exists(IncludeFilePath))
                                             {
                                                 IncludeLines = File.ReadAllLines(IncludeFilePath);
+                                                IncludeCount++;
                                             }
+                                            else
+                                            {
+                                                Console.WriteLine($"Missing file {IncludeFilePath}");
+                                            }
+
+                                            Console.WriteLine($"Include Count {IncludeCount}");
                                         }
                                         
                                     }
@@ -425,15 +438,11 @@ namespace CobolToCSharp
                         case CobolToCSharp.ParseMode.COLLECT_PROCEDURE_DIVISION:
                             
                             Line = RemoveNumericsAtStart(Line);
-                            //if(Line.Contains("************ NEW CHECK FOR DATE **********"))
-                            //{
-                            //    int X123 = 100;
-                            //}
                             if (CollectSQL)
                             {
                                 SBStatement.Append(" ");
                                 SBStatement.Append(Line);
-                                if (Line.Equals("END-EXEC."))
+                                if (Line.StartsWith("END-EXEC"))
                                 {
                                     CollectSQL = false;
                                 }
@@ -456,6 +465,15 @@ namespace CobolToCSharp
                             }
                             if (ParagraphRegex.IsMatch(Line))
                             {
+                                if (Line.ToUpper().Contains("EXIT"))
+                                {
+                                    int asd = 10;
+                                }
+                                bool D = (SBStatement.ToString().Length == 0 || SBStatement.ToString().Trim().EndsWith("."));
+                                if (Line.Contains("RETURN-DATA."))
+                                {
+                                   
+                                }
                                 if (Paragraphs.Count > 0)
                                     Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum - addedLines);
                                 StatementRowNum = RowNum;

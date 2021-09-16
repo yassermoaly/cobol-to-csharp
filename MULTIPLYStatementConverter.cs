@@ -13,10 +13,10 @@ namespace CobolToCSharp
 
         public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, Dictionary<string,string> CobolVariablesDataTypes = null)
         {
-            if(new Regex(@"MULTIPLY[ ]+([a-zA-Z0-9-]+)[ ]+BY[ ]+([a-zA-Z0-9-]+|[0-9]*.[0-9]*)[ ]+GIVING[ ]+([a-zA-Z0-9-]+)[ ROUNDED]*").IsMatch(Line))
+            if(new Regex($@"{"MULTIPLY".RegexUpperLower()}[ ]+([a-zA-Z0-9-]+)[ ]+{"BY".RegexUpperLower()}[ ]+([a-zA-Z0-9-]+|[0-9]*.[0-9]*)[ ]+{"GIVING".RegexUpperLower()}[ ]+([a-zA-Z0-9-]+)([ ]+{"ROUNDED".RegexUpperLower()})*").IsMatch(Line))
             {
-                string[] Fields = Line.Replace("MULTIPLY", string.Empty).Replace("BY", string.Empty).Replace("GIVING", string.Empty).Replace("ROUNDED", string.Empty).Split(' ',StringSplitOptions.RemoveEmptyEntries).Select(r=>NamingConverter.Convert(r)).ToArray();
-                string RoundFunctin = new Regex(".+ROUNDED").IsMatch(Line) ? "Ceiling" : "Floor";
+                string[] Fields = Line.RegexReplace("MULTIPLY", string.Empty).RegexReplace("BY", string.Empty).RegexReplace("GIVING", string.Empty).RegexReplace("ROUNDED", string.Empty).Split(' ',StringSplitOptions.RemoveEmptyEntries).Select(r=>NamingConverter.Convert(r)).ToArray();
+                string RoundFunctin = new Regex($".+{"ROUNDED".RegexUpperLower()}").IsMatch(Line) ? "Ceiling" : "Floor";
                 return $"{NamingConverter.Convert(Fields[2])} = (int)Math.Ceiling((double){NamingConverter.Convert(Fields[0])} * (double){NamingConverter.Convert(Fields[1])});";
             }
             throw new Exception($"Invalid {StatementTypes.First().ToString()} Statement, {Line}");

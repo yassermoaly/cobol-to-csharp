@@ -8,27 +8,26 @@ using System.Threading.Tasks;
 namespace CobolToCSharp
 {
     public class Paragraph
-    {
-     
-        #region Regex
-        public static Regex RegexGOTO = new Regex("^GO[ ]+TO");
-        public static Regex RegexEXECSQL = new Regex("^EXEC[ ]+SQL");
-        public static Regex RegexEXITPROGRAM = new Regex("^EXIT[ ]+PROGRAM");
-        public static Regex RegexMOVE = new Regex("^MOVE");
-        public static Regex RegexIF = new Regex("^IF");
-        public static Regex RegexPERFORM = new Regex("^PERFORM");
-        public static Regex RegexELSE = new Regex("^ELSE");
-        public static Regex RegexELSE_IF = new Regex("^ELSE IF");
-        public static Regex RegexEND_IF = new Regex("^END-IF");
-        public static Regex RegexDISPLAY = new Regex("^DISPLAY");
-        public static Regex RegexADD = new Regex("^ADD");
-        public static Regex RegexSUBTRACT = new Regex("^SUBTRACT");
-        public static Regex RegexCOMPUTE = new Regex("^COMPUTE");
-        public static Regex RegexDIVIDE = new Regex("^DIVIDE");
-        public static Regex RegexMULTIPLY = new Regex("^MULTIPLY");
-        public static Regex RegexCALL = new Regex("^CALL");
+    {        
+        #region 
+        public static Regex RegexGOTO = new Regex("^GO[ ]+(TO)*".RegexUpperLower());
+        public static Regex RegexEXECSQL = new Regex("^EXEC[ ]+SQL".RegexUpperLower());
+        public static Regex RegexEXITPROGRAM = new Regex("^EXIT[ ]+PROGRAM".RegexUpperLower());
+        public static Regex RegexMOVE = new Regex("^MOVE".RegexUpperLower());
+        public static Regex RegexIF = new Regex("^IF".RegexUpperLower());
+        public static Regex RegexPERFORM = new Regex("^PERFORM".RegexUpperLower());
+        public static Regex RegexELSE = new Regex("^ELSE".RegexUpperLower());
+        public static Regex RegexELSE_IF = new Regex("^ELSE IF".RegexUpperLower());
+        public static Regex RegexEND_IF = new Regex("^END-IF".RegexUpperLower());
+        public static Regex RegexDISPLAY = new Regex("^DISPLAY".RegexUpperLower());
+        public static Regex RegexADD = new Regex("^ADD".RegexUpperLower());
+        public static Regex RegexSUBTRACT = new Regex("^SUBTRACT".RegexUpperLower());
+        public static Regex RegexCOMPUTE = new Regex("^COMPUTE".RegexUpperLower());
+        public static Regex RegexDIVIDE = new Regex("^DIVIDE".RegexUpperLower());
+        public static Regex RegexMULTIPLY = new Regex("^MULTIPLY".RegexUpperLower());
+        public static Regex RegexCALL = new Regex("^CALL".RegexUpperLower());
         public static Regex RegexCOMMENT = new Regex(@"^\*");
-        public static Regex RegexENDPROGRAM = new Regex(@"^END[ ]+PROGRAM");
+        public static Regex RegexENDPROGRAM = new Regex(@"^END[ ]+PROGRAM".RegexUpperLower());
         private static readonly Regex ParagraphRegex = new Regex(@"^[a-zA-Z0-9-_]+\.$");
         #endregion
         public List<Paragraph> Paragraphs { get; set; }

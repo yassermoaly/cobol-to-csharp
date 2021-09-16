@@ -16,7 +16,7 @@ namespace CobolToCSharp
             Line = Line.Trim();
             if (Line.EndsWith("."))
                 Line.Remove(Line.Length - 1);
-            return $"{Line.Replace("COMPUTE", string.Empty).Trim()};";
+            return $"{Line.RegexReplace("COMPUTE", string.Empty).Trim()};";
             //foreach (Match Match in new Regex(@"([/*+-=][ ]*(([a-zA-Z-]+)|([0-9]+)|([0-9]*\.[0-9]+)))").Matches(Line))
             //{
             //    int x = 100;
