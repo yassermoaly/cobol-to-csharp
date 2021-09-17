@@ -12,7 +12,7 @@ namespace CobolToCSharp
         #region 
         public static Regex RegexGOTO = new Regex("^GO[ ]+(TO)*".RegexUpperLower());
         public static Regex RegexEXECSQL = new Regex("^EXEC[ ]+SQL".RegexUpperLower());
-        public static Regex RegexEXITPROGRAM = new Regex("^EXIT[ ]+PROGRAM".RegexUpperLower());
+        public static Regex RegexEXITPROGRAM = new Regex("(^EXIT)|(^EXIT[ ]+PROGRAM)".RegexUpperLower());
         public static Regex RegexMOVE = new Regex("^MOVE".RegexUpperLower());
         public static Regex RegexIF = new Regex("^IF".RegexUpperLower());
         public static Regex RegexPERFORM = new Regex("^PERFORM".RegexUpperLower());

@@ -28,7 +28,7 @@ namespace CobolToCSharp
         private static int BlockCount = 0;
         #region Regex        
         private static Regex RegexCOMMENT = new Regex(@"^\*");
-        private static string StringRegexStatement = "(MOVE|IF|ELSE[ ]+IF|END-IF|PERFORM|ELSE|DISPLAY|ADD|SUBTRACT|COMPUTE|CALL|DIVIDE|MULTIPLY|GO[ ]+TO|GO[ ]+|EXIT[ ]+PROGRAM|END[ ]+PROGRAM)".RegexUpperLower();
+        private static string StringRegexStatement = @"(MOVE|IF|ELSE[ ]+IF|END-IF|PERFORM|ELSE|DISPLAY|ADD|SUBTRACT|COMPUTE|CALL|DIVIDE|MULTIPLY|GO[ ]+TO|GO[ ]+|EXIT[ ]*\.|EXIT[ ]+PROGRAM|END[ ]+PROGRAM)".RegexUpperLower();
         private static Regex RegexStatement = new Regex($"^{StringRegexStatement}");
         private static Regex RegexContainsStatement = new Regex($"{StringRegexStatement}");
         private static readonly Regex ParagraphRegex = new Regex(@"^[a-zA-Z0-9-_]+\.$");
@@ -348,16 +348,15 @@ namespace CobolToCSharp
                                         i++;
                                         Line = Lines[i].Replace('\t', ' ');
                                        
-                                        if (new Regex("END-EXEC").IsMatch(Line))
+                                        if (new Regex("END-EXEC".RegexUpperLower()).IsMatch(Line))
                                             break;
                                        
                                         
-                                        Match IncludeMatch = new Regex(@"INCLUDE[ ]+[a-zA-Z0-9-_\.]+").Match(Line);
+                                        Match IncludeMatch = new Regex($@"{"INCLUDE".RegexUpperLower()}[ ]+[a-zA-Z0-9-_\.]+").Match(Line);
                                         if (IncludeMatch.Success)
                                         {
-                                            IncludeFilePath = $@"{WorkingDir}\{IncludeMatch.Value.Replace("INCLUDE", string.Empty).Trim()}";
-                                            
-                                            
+                                            IncludeFilePath = $@"{WorkingDir}\{IncludeMatch.Value.RegexReplace("INCLUDE", string.Empty).Trim()}";
+                                                                                        
                                             if (File.Exists(IncludeFilePath))
                                             {
                                                 IncludeLines = File.ReadAllLines(IncludeFilePath);
@@ -367,8 +366,7 @@ namespace CobolToCSharp
                                             {
                                                 Console.WriteLine($"Missing file {IncludeFilePath}");
                                             }
-
-                                            Console.WriteLine($"Include Count {IncludeCount}");
+                                            
                                         }
                                         
                                     }
@@ -442,12 +440,18 @@ namespace CobolToCSharp
                             {
                                 SBStatement.Append(" ");
                                 SBStatement.Append(Line);
-                                if (Line.StartsWith("END-EXEC"))
+                                if (new Regex("^END-EXEC".RegexUpperLower()).IsMatch(Line))
                                 {
                                     CollectSQL = false;
                                 }
                                 continue;
                             }
+
+                            if (Line.Contains("IF NOT TP-OK"))
+                            {
+                                int asd1 = 00;
+                            }
+
                             MatchCollection Collection = RegexContainsStatement.Matches(Line);
                             if (Collection.Count > 1)
                             {
@@ -455,37 +459,14 @@ namespace CobolToCSharp
                                 char PostChar = Collection[1].Index + Collection[1].Length < Line.Length ? Line[Collection[1].Index + Collection[1].Length] : '_';
                                 if ((PreChar == ' ' || PreChar == '.') && PostChar == ' ')
                                 {
-                                    Line = Lines[i].Substring(0, Collection[1].Index).Trim();
-                                    Lines.Insert(i + 1, Lines[i].Substring(Collection[1].Index).Trim());
+                                    string temp = Line;
+                                    Line = temp.Substring(0, Collection[1].Index).Trim();
+                                    Lines.Insert(i + 1, temp.Substring(Collection[1].Index).Trim());
                                     Lines[i] = Line;
                                     addedLines++;
                                 }
-
-
-                            }
-                            if (ParagraphRegex.IsMatch(Line))
-                            {
-                                if (Line.ToUpper().Contains("EXIT"))
-                                {
-                                    int asd = 10;
-                                }
-                                bool D = (SBStatement.ToString().Length == 0 || SBStatement.ToString().Trim().EndsWith("."));
-                                if (Line.Contains("RETURN-DATA."))
-                                {
-                                   
-                                }
-                                if (Paragraphs.Count > 0)
-                                    Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum - addedLines);
-                                StatementRowNum = RowNum;
-                                SBStatement = new StringBuilder();
-                                Paragraphs.Add(new Paragraph()
-                                {
-                                    Name = Line,
-                                    Paragraphs = Paragraphs
-                                });
-                                continue;
-                            }
-                            else if (Paragraph.RegexEXECSQL.IsMatch(Line))
+                            }                            
+                            if (Paragraph.RegexEXECSQL.IsMatch(Line))
                             {
                                 Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum - addedLines);
                                 CollectSQL = true;
@@ -514,6 +495,19 @@ namespace CobolToCSharp
                                     SBStatement = new StringBuilder(Line);
                                 }
 
+                            }
+                            else if (ParagraphRegex.IsMatch(Line) && (string.IsNullOrEmpty(SBStatement.ToString()) || SBStatement.ToString().Trim().EndsWith(".")))
+                            {                 
+                                if (Paragraphs.Count > 0)
+                                    Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum - addedLines);
+                                StatementRowNum = RowNum;
+                                SBStatement = new StringBuilder();
+                                Paragraphs.Add(new Paragraph()
+                                {
+                                    Name = Line,
+                                    Paragraphs = Paragraphs
+                                });
+                                continue;
                             }
                             else
                             {
