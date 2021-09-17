@@ -19,8 +19,8 @@ namespace CobolToCSharp
     {
         
         private static readonly string WorkingDir = @"input";
-        //private static readonly string FileName = "sc700.cbl";
-        private static readonly string FileName = "sc499.cbl";
+        private static readonly string FileName = "sc700.cbl";
+      // private static readonly string FileName = "sc499.cbl";
         //private static readonly string FileName = "DEMO.cbl";
         private static readonly string NameSpace = "OSS_Domain";
         //private static readonly string FileName = "DEMO.cbl";
@@ -263,7 +263,7 @@ namespace CobolToCSharp
                     continue;
                 string Converted = Variable.ToString();
                 if (!DataTypes.ContainsKey(Variable.RawName))
-                    DataTypes.Add(Variable.RawName, Variable.DataType);
+                    DataTypes.Add(Variable.RawName, Variable.PropertyDataType);
                 if (!string.IsNullOrEmpty(Converted))
                     CodeWriter.WriteLine(Converted);
 

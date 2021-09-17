@@ -20,7 +20,10 @@ namespace CobolToCSharp
                 if(string.IsNullOrEmpty(_Converted))
                     _Converted = StatementConverterFactory.CreateInstance(this).Convert(Raw, Paragraph, Paragraphs, CobolVariablesDataTypes);                
 
-                
+                if(_Converted.Contains("if( INDATE==Convert.ToString(ZERO) || INDATY      < 2008 || INDATY      == 0    || INDATM      < 01   || INDATM      > 12   || INDATD      < 01   || INDATD      > 31)"))
+                {
+                    _Converted = StatementConverterFactory.CreateInstance(this).Convert(Raw, Paragraph, Paragraphs, CobolVariablesDataTypes);
+                }
                 return _Converted;
             }
         }

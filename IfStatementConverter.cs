@@ -31,15 +31,23 @@ namespace CobolToCSharp
         private string GetDatatype(string Token, Dictionary<string, string> CobolVariablesDataTypes = null)
         {
             if (Token.Equals("SPACES")) return "string";
-            else if (Token.Equals("ZEROS") || Token.Equals("ZERO")) return "long";
+            else if (Token.Equals("ZEROS") || Token.Equals("ZERO")) return "numeric";
             else if (new Regex("([Xx]*'.+')|([Xx]*\".+\")").IsMatch(Token))
                 return "string";
             else if (new Regex("([0-9]+(\\.[0-9]+)*)").IsMatch(Token))
-                return "double";
-            else if (new Regex("([0-9]+)").IsMatch(Token))
-                return "long";
+                return "numeric";           
             if (CobolVariablesDataTypes.ContainsKey(Token.Replace("_","-")))
-                return CobolVariablesDataTypes[Token.Replace("_", "-")];
+            {
+                switch (CobolVariablesDataTypes[Token.Replace("_", "-")])
+                {
+                    case "long":
+                    case "double":
+                        return "numeric";
+                    default:
+                        return "string";
+                }
+            }
+                
             return "undefined";
 
             //(([Xx]*'.+')|([Xx]*\".+\")|([0-9]+(\.[0-9]+)*)|([a-zA-Z-0-9]+))+[ ]*=[ ]*=[ ]*(([Xx]*'.+')|([Xx]*\".+\")|([0-9]+(\.[0-9]+)*)|([a-zA-Z-0-9]+))
@@ -89,13 +97,14 @@ namespace CobolToCSharp
             {
                 int x123 = 100;
             }
-            Dictionary<string, string> Replacements = new Dictionary<string, string>();
-            foreach (Match Match in new Regex("(([Xx]*'.+')|([Xx]*\".+\")|([0-9]+(\\.[0-9]+)*)|([a-zA-Z_0-9]+))+[ ]*=[ ]*=[ ]*(([Xx]*'.+')|([Xx]*\".+\")|([0-9]+(\\.[0-9]+)*)|([a-zA-Z_0-9]+))").Matches(Line))
+            int ExtraAddedCharacters = 0;
+            foreach (Match Match in new Regex("(([Xx]*'[^']+')|([Xx]*\"[^\"]\")|([0-9]+(\\.[0-9]+)*)|([a-zA-Z_0-9]+))+[ ]*=[ ]*=[ ]*(([Xx]*'[^']+')|([Xx]*\"([^\"]+)\")|([0-9]+(\\.[0-9]+)*)|([a-zA-Z_0-9]+))").Matches(Line))
             {
-                if (Replacements.ContainsKey(Match.Value))
-                    continue;
-                string[] Tokens = Match.Value.RegexReplace("=", " ").Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
+                string[] Tokens = Match.Value.Split('=', StringSplitOptions.RemoveEmptyEntries).Select(r=>r.Trim()).ToArray();
+                if (Tokens.Length != 2)
+                {
+                    throw new Exception("Invalid If Regex");
+                }
                 string LeftHandType = GetDatatype(Tokens[0], CobolVariablesDataTypes);
                 string RightHandType = GetDatatype(Tokens[1], CobolVariablesDataTypes);
 
@@ -114,7 +123,11 @@ namespace CobolToCSharp
                             RightHand = RightHand.RegexReplace("X", string.Empty).Replace("'", "\"");
                         else
                             RightHand = $"Convert.ToString({RightHand})";
-                        Replacements.Add(Match.Value, $"{LeftHand}=={RightHand}");
+                      
+
+                        string NewValue = $"{LeftHand}=={RightHand}";
+                        Line = Line.PostionReplace(Match.Index+ ExtraAddedCharacters, Match.Length, NewValue);
+                        ExtraAddedCharacters += NewValue.Length - Match.Length;
                     }
                 }
             }
@@ -122,7 +135,6 @@ namespace CobolToCSharp
             //{
             //    Line = Line.Replace(Replacement.Key, Replacement.Value);
             //}
-
 
             return $"{Line})";
         }
