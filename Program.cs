@@ -5,6 +5,7 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Text;
 using Microsoft.Extensions.Configuration;
+using CobolToCSharp.Screen;
 
 namespace CobolToCSharp
 {
@@ -19,8 +20,8 @@ namespace CobolToCSharp
     {
         
         private static readonly string WorkingDir = @"input";
-        private static readonly string FileName = "sc700.cbl";
-      // private static readonly string FileName = "sc499.cbl";
+       private static readonly string FileName = "sc700.cbl";
+     //  private static readonly string FileName = "sc499.cbl";
         //private static readonly string FileName = "DEMO.cbl";
         private static readonly string NameSpace = "OSS_Domain";
         //private static readonly string FileName = "DEMO.cbl";
@@ -37,6 +38,24 @@ namespace CobolToCSharp
         private static CobolVariable WORKING_STORAGE_VARIABLE = new CobolVariable();
         private static CobolVariable LINKAGE_SECTION_VARIABLE = new CobolVariable();
 
+
+        static CobolVariable FindCobolVariableByName(string Name,List<CobolVariable> CobolVariables)
+        {
+            foreach (var CobolVariable in CobolVariables)
+            {
+                if (CobolVariable.RawName == Name)
+                    return CobolVariable;
+                if (CobolVariable.Childs.Count > 0)
+                {
+                    var ChildResult =  FindCobolVariableByName(Name, CobolVariable.Childs);
+                    if (ChildResult != null)
+                    {
+                        return ChildResult;
+                    }
+                }
+            }
+            return null;
+        }
         static void Main(string[] args)
         {
 
@@ -279,10 +298,160 @@ namespace CobolToCSharp
 
         }
 
+        public static void ParseScreen(string FileName, List<CobolVariable> CobolVariables)
+        {
+            string Text = DecodeArabic.DecodeFile($@"{WorkingDir}\{FileName.Replace("sc", "f").Replace(".cbl", ".scrn")}");
+            List<ScreenBlock> ScreenBlocks = ScreenBlock.ExtractFromText(Text, new string[] { "RECORD", "SCREEN" });
+            var Screen = ScreenBlocks.First(r => r.Type == "SCREEN");
+            var ScreenVARIABLE = Screen.Childs.First(r => r.Type == "VARIABLE");
 
+            Dictionary<int, List<ScreenElement>> ScreenElementsDict = new Dictionary<int, List<ScreenElement>>();
+
+            var InputBindVariable = ScreenBlocks.First(r => r.Name == ScreenVARIABLE.INPUT);
+            var OutBindVariable = ScreenBlocks.First(r => r.Name == ScreenVARIABLE.OUTPUT);
+
+            CobolVariable INTRAN = FindCobolVariableByName("INTRAN", CobolVariables);
+            CobolVariable OUTTRAN = FindCobolVariableByName("OUTTRAN", CobolVariables);
+            CobolVariable CurrentCobolVariable = null;
+            foreach (var InputBindVariableChild in OutBindVariable.Childs)
+            {
+                while (true)
+                {
+                    if (CurrentCobolVariable == null)
+                    {
+                        CurrentCobolVariable = OUTTRAN.Childs.First();
+                    }
+                    else
+                    {
+                        if (string.IsNullOrEmpty(CurrentCobolVariable.REDEFINENAME) && CurrentCobolVariable.DataType == "class")
+                        {
+                            CurrentCobolVariable = CurrentCobolVariable.Childs.First();
+                        }
+                        else
+                        {
+                            int Index = CurrentCobolVariable.Parent.Childs.IndexOf(CurrentCobolVariable);
+                            if (Index+1 < CurrentCobolVariable.Parent.Childs.Count)
+                            {
+                                CurrentCobolVariable = CurrentCobolVariable.Parent.Childs[Index+1];
+                            }
+                            else
+                            {
+                                CurrentCobolVariable = CurrentCobolVariable.Parent;
+                            }
+
+                        }
+                    }
+                    if (CurrentCobolVariable.DataType != "class" && string.IsNullOrEmpty(CurrentCobolVariable.REDEFINENAME))
+                    {
+                        InputBindVariableChild.BindName = NamingConverter.Convert(CurrentCobolVariable.RawName);
+                        break;
+                    }
+                }
+            }
+
+
+            foreach (KeyValuePair<int,double> RowMapping in Screen.RowMappings)
+            {
+                List<ScreenBlock> Childs = Screen.Childs.Where(r => r.Y == RowMapping.Value).OrderBy(r=>r.X).ToList();
+                foreach (var Child in Childs)
+                {
+                    if (Child.IsLabel)
+                    {
+                        MatchCollection Matches = new Regex("[0-9]-[^0-9]+").Matches(Child.VALUE);
+                        if (Matches.Count> 0)
+                        {
+                            ScreenElementsDict[RowMapping.Key].Last().Options = Matches.Select(r => r.Value).ToArray();
+                        }
+                        else
+                        {
+                            if(!ScreenElementsDict.ContainsKey(RowMapping.Key))
+                                ScreenElementsDict.Add(RowMapping.Key, new List<ScreenElement>());
+                            ScreenElementsDict[RowMapping.Key].Add(new ScreenElement()
+                            {
+                                Label = Child.VALUE
+                            });
+                        }
+                    }
+                    else
+                    {
+                        ScreenElementsDict[RowMapping.Key].Last().ScreenBlock = Child;
+                    }
+                }              
+            }
+            StringBuilder SBOptions = new StringBuilder();
+            StringBuilder SBView = new StringBuilder("[");
+            foreach (int Key in ScreenElementsDict.Keys)
+            {
+                
+                List<ScreenElement> ScreenElements = ScreenElementsDict[Key];
+                int col = (int)Math.Ceiling(12.0 / (float)ScreenElements.Count);
+                if (Key > 0)
+                    SBView.Append(",");
+                SBView.Append("{");
+                SBView.Append("\"TagName\": \"div\",");
+                SBView.Append("\"Class\": \"row\",");
+                SBView.Append("\"Childs\": [");
+                bool IsFirst = true;
+                foreach (var ScreenElement in ScreenElements)
+                {
+                    if (!IsFirst)
+                        SBView.Append(",");
+                    SBView.Append("{");
+                    SBView.Append("\"TagName\": \"div\"");
+                    SBView.Append($",\"Class\": \"col-md-{col}\"");
+                    SBView.Append(",\"Childs\": [");
+                    SBView.Append("{");
+                    SBView.Append($"\"TagName\": \"{ScreenElement.TagName}\"");
+                    SBView.Append(",\"Class\": \"form-control\"");
+                    SBView.Append($",\"Label\": \"{ScreenElement.Label.Replace(char.ConvertFromUtf32(160), " ")}\"");
+                    if (!string.IsNullOrEmpty(ScreenElement.Name))
+                    {
+                        SBView.Append($",\"Bind\": \"item.{ScreenElement.Name}\"");
+                        SBView.Append($",\"Name\": \"{ScreenElement.Name}\"");
+                    }
+                    if (ScreenElement.TagName == "select")
+                    {
+                        SBView.Append($",\"Options\": \"{ScreenElement.Name}-options\"");
+                        if (SBOptions.Length > 0)
+                            SBOptions.Append(",");
+                        SBOptions.Append($"{{\"Name\": \"{ScreenElement.Name}-options\",\"Values\": [{ScreenElement.OptionsJson}]}}");
+                    }
+                    if (ScreenElement.IsReadOnly)
+                    {
+                        SBView.Append(",\"Attributes\": {");
+                        SBView.Append("\"readonly\": \"readonly\"");
+                        SBView.Append("}");
+                    }
+                    SBView.Append("}");
+                    SBView.Append("]");
+                    SBView.Append("}");
+                    if (IsFirst)
+                    {
+                        IsFirst = false;
+                    }                    
+                }
+                SBView.Append("]");
+                SBView.Append("}");
+              
+            }
+            SBView.Append("]");
+            using (StreamWriter W = new StreamWriter("view.json"))
+            {
+
+                W.Write(SBView.ToString());
+            }
+            using (StreamWriter W = new StreamWriter("options.json"))
+            {
+
+                W.Write($"[{SBOptions.ToString()}]");
+            }
+            
+
+        }
         private static void Parse(string FileName)
         {
-            StringBuilder SBStatement = new StringBuilder();
+            
+            StringBuilder SBStatement = new StringBuilder();          
             List<string> Lines = File.ReadAllLines($@"{WorkingDir}\{FileName}").ToList();
             List<Paragraph> Paragraphs = new List<Paragraph>();
             bool CollectSQL = false;           
@@ -523,9 +692,15 @@ namespace CobolToCSharp
                 if(Paragraphs.Count>0)
                     Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum- addedLines);
 
+            List<CobolVariable> CobolVariables = new List<CobolVariable>(new CobolVariable[] { WORKING_STORAGE_VARIABLE, LINKAGE_SECTION_VARIABLE });
+            ParseScreen(FileName, CobolVariables);
+            return;
             var DataTypes = WriteAllVariables(WORKING_STORAGE_VARIABLE.Childs,LINKAGE_SECTION_VARIABLE.Childs);
 
-            List<CobolVariable> CobolVariables = new List<CobolVariable>(new CobolVariable[] { WORKING_STORAGE_VARIABLE, LINKAGE_SECTION_VARIABLE });
+        
+            
+
+           
 
             //ExtractUndefinedVariables(Paragraphs, CobolVariables);
 
