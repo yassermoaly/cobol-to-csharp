@@ -21,7 +21,10 @@ namespace CobolToCSharp
                 if (!string.IsNullOrEmpty(FunctionName))
                 {
                     SB.AppendLine($"#region {Line}");
-                    SB.AppendLine($"return FullStack.AddRangeAndReturnSource({NamingConverter.Convert(FunctionName)}(true, NextScope));");
+                    SB.AppendLine($"if(NextScope!=null && NextScope.Contains(\"{NamingConverter.Convert(FunctionName)}\"))");
+                    SB.AppendLine($"    return FullStack.AddRangeAndReturnSource({NamingConverter.Convert(FunctionName)}(true, NextScope));");
+                    SB.AppendLine($"else");
+                    SB.AppendLine($"    return FullStack.AddRangeAndReturnSource({NamingConverter.Convert(FunctionName)}(true, null));");
                     SB.AppendLine($"#endregion");
                     return SB.ToString();
                 }

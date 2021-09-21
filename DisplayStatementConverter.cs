@@ -14,7 +14,7 @@ namespace CobolToCSharp
         {
             //return string.Empty;
             if (Line.EndsWith(".")) Line = Line.Substring(0, Line.Length - 1);
-            return $"{Line.Replace("'", "\"").Replace("DISPLAY", "Console.WriteLine(")});";
+            return $"{Line.Replace("'", "\"").Replace(".",string.Empty).Replace("DISPLAY", "Console.WriteLine(")});";
         }        
     }
 }
