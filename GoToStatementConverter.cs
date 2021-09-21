@@ -16,11 +16,12 @@ namespace CobolToCSharp
             if (new Regex($"^{"GO".RegexUpperLower()}[ ]+({"TO".RegexUpperLower()}[ ]+)*[a-zA-Z0-9-]+").IsMatch(Line))
             {
                 StringBuilder SB = new StringBuilder();
-                SB.AppendLine($"#region {Line}");
+              
                 string FunctionName = Line.RegexReplace("GO", string.Empty).RegexReplace("TO", string.Empty).Replace(".", string.Empty).Trim();
                 if (!string.IsNullOrEmpty(FunctionName))
-                {                    
-                    SB.AppendLine($"return {NamingConverter.Convert(FunctionName)}(false,true);");
+                {
+                    SB.AppendLine($"#region {Line}");
+                    SB.AppendLine($"return FullStack.AddRangeAndReturnSource({NamingConverter.Convert(FunctionName)}(true, NextScope));");
                     SB.AppendLine($"#endregion");
                     return SB.ToString();
                 }

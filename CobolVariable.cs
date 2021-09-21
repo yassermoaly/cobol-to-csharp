@@ -15,6 +15,8 @@ namespace CobolToCSharp
         static Regex RegexAlphaNumberic = new Regex(@"^[Xx]+$");
         static Regex RegexAlphabetic = new Regex(@"^[Aa]+$");
 
+
+
         public CobolVariable()
         {
             Childs = new List<CobolVariable>();
@@ -57,7 +59,7 @@ namespace CobolToCSharp
                 if (Childs.Count > 0)
                     return "class";
 
-                return new Regex($@"{"PIC".RegexUpperLower()}[ ]+.+?(?=(\.| ))").Match(Raw).Value.RegexReplace("PIC",string.Empty).Trim();
+                return new Regex($@"{"PIC".RegexUpperLower()}[ ]+.+?(?=(\.| ))").Match(Raw).Value.RegexReplace("PIC",string.Empty).Trim().Replace("Z","9").Replace("B", "9");
             }
         }
         public bool IsSigned
@@ -377,6 +379,26 @@ namespace CobolToCSharp
             SB.AppendLine($"        #endregion");
 
             return SB.ToString();
-        }       
+        }
+
+        public List<CobolVariable> GetBaseChilds()
+        {
+            List<CobolVariable> result = new List<CobolVariable>();
+            foreach (var Child in Childs)
+            {
+                if (string.IsNullOrEmpty(Child.REDEFINENAME))
+                {
+                    if(Child.DataType == "class")
+                    {
+                        result.AddRange(Child.GetBaseChilds());
+                    }
+                    else
+                    {
+                        result.Add(Child);
+                    }
+                }
+            }
+            return result;
+        }
     }
 }

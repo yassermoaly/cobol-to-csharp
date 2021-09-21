@@ -28,6 +28,7 @@ namespace CobolToCSharp
         COMMENT,
         BEGIN_BLOCK,
         END_BLOCK,
-        END_PROGRAM
+        END_PROGRAM,
+        STOP_RUN
     }
 }

@@ -12,6 +12,7 @@ namespace CobolToCSharp
         #region 
         public static Regex RegexGOTO = new Regex("^GO[ ]+(TO)*".RegexUpperLower());
         public static Regex RegexEXECSQL = new Regex("^EXEC[ ]+SQL".RegexUpperLower());
+        public static Regex RegexSTOPRUN = new Regex("^STOP[]+RUN".RegexUpperLower());        
         public static Regex RegexEXITPROGRAM = new Regex("(^EXIT)|(^EXIT[ ]+PROGRAM)".RegexUpperLower());
         public static Regex RegexMOVE = new Regex("^MOVE".RegexUpperLower());
         public static Regex RegexIF = new Regex("^IF".RegexUpperLower());
@@ -98,7 +99,9 @@ namespace CobolToCSharp
                 return StatementType.COMMENT;
             else if (RegexENDPROGRAM.IsMatch(Line))
                 return StatementType.END_PROGRAM;
-            
+            else if (RegexSTOPRUN.IsMatch(Line))
+                return StatementType.END_PROGRAM;
+
             throw new Exception($"Statement Type not handeled {Line}");
         }
 

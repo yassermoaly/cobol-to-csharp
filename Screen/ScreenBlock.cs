@@ -94,14 +94,18 @@ namespace CobolToCSharp.Screen
         {
             get
             {
-                return double.Parse(LOCATION.Split(',')[1].Trim());
+                if (LOCATION.Contains(','))
+                    return double.Parse(LOCATION.Split(',')[1].Trim());
+                return 0;
             }
         }
         public double Y
         {
             get
             {
-                return double.Parse(LOCATION.Split(',')[0].Trim());
+                if(LOCATION.Contains(','))
+                    return double.Parse(LOCATION.Split(',')[0].Trim());
+                return 0;
             }
         }
 

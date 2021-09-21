@@ -19,17 +19,18 @@ namespace CobolToCSharp
     class Program
     {
         
-        private static readonly string WorkingDir = @"input";
-       private static readonly string FileName = "sc700.cbl";
-     //  private static readonly string FileName = "sc499.cbl";
-        //private static readonly string FileName = "DEMO.cbl";
+       private static readonly string WorkingDir = @"input";
+        // private static readonly string FileName = "sc700.cbl";
+       //   private static readonly string FileName = "sc499.cbl";
+        //private static readonly string FileName = "sc500.cbl";
+        private static readonly string FileName = "DEMO.cbl";
         private static readonly string NameSpace = "OSS_Domain";
-        //private static readonly string FileName = "DEMO.cbl";
+       //private static readonly string FileName = "DEMO.cbl";
         //private static readonly string FileName = "small.cbl";
-        private static int BlockCount = 0;
-        #region Regex        
+       private static int BlockCount = 0;
+       #region Regex        
         private static Regex RegexCOMMENT = new Regex(@"^\*");
-        private static string StringRegexStatement = @"(MOVE|IF|ELSE[ ]+IF|END-IF|PERFORM|ELSE|DISPLAY|ADD|SUBTRACT|COMPUTE|CALL|DIVIDE|MULTIPLY|GO[ ]+TO|GO[ ]+|EXIT[ ]*\.|EXIT[ ]+PROGRAM|END[ ]+PROGRAM)".RegexUpperLower();
+        private static string StringRegexStatement = @"(MOVE|IF|ELSE[ ]+IF|END-IF|PERFORM|ELSE|DISPLAY|ADD|SUBTRACT|COMPUTE|CALL|DIVIDE|MULTIPLY|GO[ ]+TO|GO[ ]+|EXIT[ ]*\.|EXIT[ ]+PROGRAM|END[ ]+PROGRAM|STOP[ ]+RUN)".RegexUpperLower();
         private static Regex RegexStatement = new Regex($"^{StringRegexStatement}");
         private static Regex RegexContainsStatement = new Regex($"{StringRegexStatement}");
         private static readonly Regex ParagraphRegex = new Regex(@"^[a-zA-Z0-9-_]+\.$");
@@ -39,7 +40,7 @@ namespace CobolToCSharp
         private static CobolVariable LINKAGE_SECTION_VARIABLE = new CobolVariable();
 
 
-        static CobolVariable FindCobolVariableByName(string Name,List<CobolVariable> CobolVariables)
+        static CobolVariable FindCobolVariableByName(string Name, List<CobolVariable> CobolVariables)
         {
             foreach (var CobolVariable in CobolVariables)
             {
@@ -47,7 +48,7 @@ namespace CobolToCSharp
                     return CobolVariable;
                 if (CobolVariable.Childs.Count > 0)
                 {
-                    var ChildResult =  FindCobolVariableByName(Name, CobolVariable.Childs);
+                    var ChildResult = FindCobolVariableByName(Name, CobolVariable.Childs);
                     if (ChildResult != null)
                     {
                         return ChildResult;
@@ -157,26 +158,27 @@ namespace CobolToCSharp
                 {
                     CodeWriter.WriteLine($"        public virtual void Run()");
                     CodeWriter.WriteLine($"        {{");
-                    CodeWriter.WriteLine($"            {NamingConverter.Convert(Paragraphs.First().Name)}(true,true);");                    
+                    CodeWriter.WriteLine($"            {NamingConverter.Convert(Paragraphs.First().Name)}(true,null);");                    
                     CodeWriter.WriteLine($"        }}");
                     for (int i = 0; i < Paragraphs.Count; i++)
                     {
                         var Paragraph = Paragraphs[i];
-                        CodeWriter.WriteLine($"        private bool {NamingConverter.Convert(Paragraph.Name)}(bool ReturnBack = true, bool CallNext = false)");
+                        CodeWriter.WriteLine($"        private List<Stack> {NamingConverter.Convert(Paragraph.Name)}(bool CallNext,string[] NextScope)");
                         CodeWriter.WriteLine($"        {{");
                         bool LastStatementIsReturn = false;
+                        CodeWriter.WriteLine($"             List<Stack> FullStack = Stack.New(CallNext, \"{NamingConverter.Convert(Paragraph.Name)}\");");
                         ConvertParagraph(Paragraph, LogWriter,CodeWriter, DataTypes, out LastStatementIsReturn);
                         if (!LastStatementIsReturn)
                         {
                             if (i + 1 < Paragraphs.Count)
                             {
-                                CodeWriter.WriteLine($"            if (CallNext)");
-                                CodeWriter.WriteLine($"                return {NamingConverter.Convert(Paragraphs[i + 1].Name)}(true,true) && ReturnBack;");
-                                CodeWriter.WriteLine($"            return ReturnBack;");
+                                CodeWriter.WriteLine($"            if (CheckCallNext(CallNext, NextScope, \"{NamingConverter.Convert(Paragraphs[i + 1].Name)}\"))");
+                                CodeWriter.WriteLine($"                 FullStack.AddRange({NamingConverter.Convert(Paragraphs[i + 1].Name)}(true, NextScope));");
+                                CodeWriter.WriteLine($"            return FullStack;");
                             }
                                 
                             else
-                                CodeWriter.WriteLine($"            return ReturnBack;");
+                                CodeWriter.WriteLine($"            return FullStack;");
                         }
                         CodeWriter.WriteLine($"        }}");
                     }                    
@@ -298,9 +300,13 @@ namespace CobolToCSharp
 
         }
 
+       
+
         public static void ParseScreen(string FileName, List<CobolVariable> CobolVariables)
         {
-            string Text = DecodeArabic.DecodeFile($@"{WorkingDir}\{FileName.Replace("sc", "f").Replace(".cbl", ".scrn")}");
+            string ScrnFilePath = $@"{WorkingDir}\{FileName.Replace("sc", "f").Replace(".cbl", ".scrn")}";
+            if (!File.Exists(ScrnFilePath)) return;
+            string Text = DecodeArabic.DecodeFile(ScrnFilePath);
             List<ScreenBlock> ScreenBlocks = ScreenBlock.ExtractFromText(Text, new string[] { "RECORD", "SCREEN" });
             var Screen = ScreenBlocks.First(r => r.Type == "SCREEN");
             var ScreenVARIABLE = Screen.Childs.First(r => r.Type == "VARIABLE");
@@ -312,47 +318,25 @@ namespace CobolToCSharp
 
             CobolVariable INTRAN = FindCobolVariableByName("INTRAN", CobolVariables);
             CobolVariable OUTTRAN = FindCobolVariableByName("OUTTRAN", CobolVariables);
-            CobolVariable CurrentCobolVariable = null;
-            foreach (var InputBindVariableChild in OutBindVariable.Childs)
+            int index = 0;
+            List<CobolVariable> INTRANBaseChilds = INTRAN.GetBaseChilds();
+            foreach (var InputBindVariableChild in InputBindVariable.Childs)
             {
-                while (true)
-                {
-                    if (CurrentCobolVariable == null)
-                    {
-                        CurrentCobolVariable = OUTTRAN.Childs.First();
-                    }
-                    else
-                    {
-                        if (string.IsNullOrEmpty(CurrentCobolVariable.REDEFINENAME) && CurrentCobolVariable.DataType == "class")
-                        {
-                            CurrentCobolVariable = CurrentCobolVariable.Childs.First();
-                        }
-                        else
-                        {
-                            int Index = CurrentCobolVariable.Parent.Childs.IndexOf(CurrentCobolVariable);
-                            if (Index+1 < CurrentCobolVariable.Parent.Childs.Count)
-                            {
-                                CurrentCobolVariable = CurrentCobolVariable.Parent.Childs[Index+1];
-                            }
-                            else
-                            {
-                                CurrentCobolVariable = CurrentCobolVariable.Parent;
-                            }
-
-                        }
-                    }
-                    if (CurrentCobolVariable.DataType != "class" && string.IsNullOrEmpty(CurrentCobolVariable.REDEFINENAME))
-                    {
-                        InputBindVariableChild.BindName = NamingConverter.Convert(CurrentCobolVariable.RawName);
-                        break;
-                    }
-                }
+                if(index< INTRANBaseChilds.Count)
+                    InputBindVariableChild.BindName = NamingConverter.Convert(INTRANBaseChilds[index++].RawName);
+            }
+            List<CobolVariable> OUTTRANBaseChilds = OUTTRAN.GetBaseChilds();
+            index = 0;
+            foreach (var OutBindVariableChild in OutBindVariable.Childs)
+            {
+                if (index < OUTTRANBaseChilds.Count)
+                    OutBindVariableChild.BindName = NamingConverter.Convert(OUTTRANBaseChilds[index++].RawName);
             }
 
 
             foreach (KeyValuePair<int,double> RowMapping in Screen.RowMappings)
             {
-                List<ScreenBlock> Childs = Screen.Childs.Where(r => r.Y == RowMapping.Value).OrderBy(r=>r.X).ToList();
+                List<ScreenBlock> Childs = Screen.Childs.Where(r => r.Y == RowMapping.Value && r.Type == "FIELD").OrderBy(r=>r.X).ToList();
                 foreach (var Child in Childs)
                 {
                     if (Child.IsLabel)
@@ -374,12 +358,16 @@ namespace CobolToCSharp
                     }
                     else
                     {
+                        if (!ScreenElementsDict.ContainsKey(RowMapping.Key))
+                            ScreenElementsDict.Add(RowMapping.Key, new List<ScreenElement>());
                         ScreenElementsDict[RowMapping.Key].Last().ScreenBlock = Child;
                     }
                 }              
             }
             StringBuilder SBOptions = new StringBuilder();
             StringBuilder SBView = new StringBuilder("[");
+            StringBuilder SBInputBindings = new StringBuilder();
+            StringBuilder SBOutputBindings = new StringBuilder();
             foreach (int Key in ScreenElementsDict.Keys)
             {
                 
@@ -394,6 +382,9 @@ namespace CobolToCSharp
                 bool IsFirst = true;
                 foreach (var ScreenElement in ScreenElements)
                 {
+                    if (string.IsNullOrEmpty(ScreenElement.Label))
+                        continue;
+
                     if (!IsFirst)
                         SBView.Append(",");
                     SBView.Append("{");
@@ -428,23 +419,113 @@ namespace CobolToCSharp
                     if (IsFirst)
                     {
                         IsFirst = false;
-                    }                    
+                    }             
+                    
+                    if(ScreenElement.ScreenBlock!=null)
+                    {
+                        if (!string.IsNullOrEmpty(ScreenElement.ScreenBlock.INPUT))
+                        {                           
+                            var BindVariable = InputBindVariable.Childs.First(r => r.Name == ScreenElement.ScreenBlock.INPUT);
+                            if (!string.IsNullOrEmpty(BindVariable.BindName))
+                            {
+                                if (SBInputBindings.Length > 0)
+                                    SBInputBindings.Append(",");
+                                SBInputBindings.Append($"{{\"Bind\": \"{ScreenElement.ScreenBlock.Name}\",\"MapProperty\": \"{BindVariable.BindName}\"}}");
+                            }
+                        }
+                        if (!string.IsNullOrEmpty(ScreenElement.ScreenBlock.OUTPUT))
+                        {                           
+                            var BindVariable = OutBindVariable.Childs.First(r => r.Name == ScreenElement.ScreenBlock.OUTPUT);
+                            if (!string.IsNullOrEmpty(BindVariable.BindName))
+                            {
+                                if (SBOutputBindings.Length > 0)
+                                    SBOutputBindings.Append(",");
+                                SBOutputBindings.Append($"{{\"Bind\": \"{ScreenElement.ScreenBlock.Name}\",\"MapProperty\": \"{BindVariable.BindName}\"}}");
+                            }
+                        }
+                    }
                 }
                 SBView.Append("]");
                 SBView.Append("}");
               
             }
             SBView.Append("]");
+
+            StringBuilder SBMessages = new StringBuilder();
+            string[] Messages = Screen.Childs.First(r => r.Type == "MESSAGE").Raw.Replace("\r\n", string.Empty).Split(';', StringSplitOptions.RemoveEmptyEntries).Select(r => r.Trim()).ToArray();
+            foreach (var Message in Messages)
+            {
+                if (!string.IsNullOrEmpty(Message))
+                {
+                    string MessageId = Message.Substring(0, Message.IndexOf("="));
+                    string MessageText = Message.Substring(Message.IndexOf("=") + 1).Replace("\"", string.Empty).Replace(char.ConvertFromUtf32(160), " ");
+                    if (SBMessages.Length > 0)
+                        SBMessages.Append(",");
+                    SBMessages.Append($"{{\"Id\": {MessageId},\"Text\": \"{MessageText}\"}}");
+                }
+            }
+
+
+
+            #region Actions
+            StringBuilder SBActions = new StringBuilder();
+            SBActions.Append("[");
+            SBActions.Append("{");
+            SBActions.Append("\"Name\": \"inquiry\",");
+            SBActions.Append("\"HeaderLabel\": \"الاشنراك فى الباقات المجمعة-استعلام\",");
+            SBActions.Append("\"OutputBindings\": [");
+            SBActions.Append("{");
+            SBActions.Append("\"Bind\": \"SAVE_AREA\",");
+            SBActions.Append("\"MapProperty\": \"SAVE_AREA\",");
+            SBActions.Append("\"Secure\": true");
+            SBActions.Append("}");
+            SBActions.Append("],");
+            SBActions.Append("\"SuccessCriteria\": {");
+            SBActions.Append("\"PropertyName\": \"OUT_TRIGGER\",");
+            SBActions.Append("\"ExpectedValue\": 15,");
+            SBActions.Append("\"StatusMessageBinding\": \"OUT_TRIGGER_MESSAGE\"");
+            SBActions.Append("},");
+            SBActions.Append("\"Confirm\": {");
+            SBActions.Append("\"Label\": \"استعلام\",");
+            SBActions.Append("\"ConfirmationRequired\": false,");
+            SBActions.Append("\"ClassName\": \"btn-primary\",");
+            SBActions.Append("\"Icon\": \"fas fa-search\"");
+            SBActions.Append("}");
+            SBActions.Append("},");
+            SBActions.Append("{");
+            SBActions.Append("\"Name\": \"perform\",");
+            SBActions.Append("\"HeaderLabel\": \"الاشنراك فى الباقات المجمعة-تنفيذ\",");
+            SBActions.Append("\"InputBindings\": [");
+            SBActions.Append("{");
+            SBActions.Append("\"Bind\": \"SAVE_AREA\",");
+            SBActions.Append("\"MapProperty\": \"SAVE_AREA\",");
+            SBActions.Append("\"Secure\": true");
+            SBActions.Append("}");
+            SBActions.Append("],");
+            SBActions.Append("\"OutputBindings\": [");
+            SBActions.Append("],");
+            SBActions.Append("\"SuccessCriteria\": {");
+            SBActions.Append("\"PropertyName\": \"OUT_TRIGGER\",");
+            SBActions.Append("\"ExpectedValue\": 31,");
+            SBActions.Append("\"StatusMessageBinding\": \"OUT_TRIGGER_MESSAGE\"");
+            SBActions.Append("},");
+            SBActions.Append("\"Confirm\": {");
+            SBActions.Append("\"Label\": \"تنفيذ\",");
+            SBActions.Append("\"ClassName\": \"btn-success\",");
+            SBActions.Append("\"ConfirmationRequired\": true,");
+            SBActions.Append("\"Icon\": \"fas fa-save\"");
+            SBActions.Append("}");     
+            SBActions.Append("}");
+            SBActions.Append("]");
+            #endregion;
+
+            StringBuilder SbJson = new StringBuilder();
+            SbJson.Append($"{{\"Name\":\"sc700\",\"View\":{{\"Options\":[{SBOptions.ToString()}],\"Controls\":{SBView.ToString()}}},\"InputBindings\":[{SBInputBindings.ToString()}],\"OutputBindings\":[{SBOutputBindings.ToString()}],\"Messages\":[{SBMessages.ToString()}],\"Actions\":{SBActions.ToString()} }}");
             using (StreamWriter W = new StreamWriter("view.json"))
             {
-
-                W.Write(SBView.ToString());
+                W.Write(SbJson.ToString());
             }
-            using (StreamWriter W = new StreamWriter("options.json"))
-            {
-
-                W.Write($"[{SBOptions.ToString()}]");
-            }
+            
             
 
         }
@@ -472,6 +553,7 @@ namespace CobolToCSharp
             {
                 RowNum++;
                 Line = Lines[i];
+               
                 if (!string.IsNullOrEmpty(Line))
                 {
                     if (Line.Contains("WORKING-STORAGE SECTION."))
@@ -505,11 +587,12 @@ namespace CobolToCSharp
                         case CobolToCSharp.ParseMode.COLLECT_LINKAGE_SECTION:
                             if (!string.IsNullOrEmpty(Line.Trim()))
                             {
+                               
                                 if (new Regex("EXEC SQL.+END-EXEC").IsMatch(Line))
                                 {
                                     continue;
                                 }
-                                else if(new Regex("EXEC SQL").IsMatch(Line))
+                                else if(new Regex("EXEC SQL").IsMatch(Line) || new Regex("COPY[ ]+\"[a-zA-Z0-9-]+\"\\.").IsMatch(Line))
                                 {                                  
                                     string[] IncludeLines = null;
                                     while (true)
@@ -522,9 +605,11 @@ namespace CobolToCSharp
                                        
                                         
                                         Match IncludeMatch = new Regex($@"{"INCLUDE".RegexUpperLower()}[ ]+[a-zA-Z0-9-_\.]+").Match(Line);
-                                        if (IncludeMatch.Success)
+                                        Match CopyMatch = new Regex("COPY[ ]+\"[a-zA-Z0-9-]+\"\\.").Match(Line);
+                                        if (IncludeMatch.Success || CopyMatch.Success)
                                         {
-                                            IncludeFilePath = $@"{WorkingDir}\{IncludeMatch.Value.RegexReplace("INCLUDE", string.Empty).Trim()}";
+                                            string IncludeFileName = IncludeMatch.Success ? IncludeMatch.Value.RegexReplace("INCLUDE", string.Empty).Trim():CopyMatch.Value.RegexReplace("COPY", string.Empty).Replace("\"", string.Empty).Trim();
+                                            IncludeFilePath = $@"{WorkingDir}\{IncludeFileName}";
                                                                                         
                                             if (File.Exists(IncludeFilePath))
                                             {
@@ -535,7 +620,7 @@ namespace CobolToCSharp
                                             {
                                                 Console.WriteLine($"Missing file {IncludeFilePath}");
                                             }
-                                            
+                                            if (CopyMatch.Success) break;
                                         }
                                         
                                     }
@@ -694,7 +779,7 @@ namespace CobolToCSharp
 
             List<CobolVariable> CobolVariables = new List<CobolVariable>(new CobolVariable[] { WORKING_STORAGE_VARIABLE, LINKAGE_SECTION_VARIABLE });
             ParseScreen(FileName, CobolVariables);
-            return;
+            
             var DataTypes = WriteAllVariables(WORKING_STORAGE_VARIABLE.Childs,LINKAGE_SECTION_VARIABLE.Childs);
 
         

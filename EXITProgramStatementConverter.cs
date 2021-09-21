@@ -12,7 +12,8 @@ namespace CobolToCSharp
 
         public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, Dictionary<string,string> CobolVariablesDataTypes = null)
         {
-            return "return false;";
+            return string.Empty;
+           // return "return false;";
         }
     }
 }

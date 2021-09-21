@@ -20,23 +20,41 @@ namespace CobolToCSharp
                 string[] Tokens = TokensMatch.Value.RegexReplace("PERFORM", string.Empty).RegexReplace("THRU", string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(r => r.Trim().Replace(".",string.Empty)).ToArray();
                 bool Append = false;
                 SB.AppendLine($"#region Preform {Tokens[0]} THRU {Tokens[1]}");
-                foreach (var P in Paragraphs)
+                Paragraph StartParagraph = Paragraphs.First(r => r.Name.Replace(".", string.Empty).Equals(Tokens[0]));
+                Paragraph EndParagraph = Paragraphs.First(r => r.Name.Replace(".", string.Empty).Equals(Tokens[1]));
+                int StartParagraphIndex = Paragraphs.IndexOf(StartParagraph);
+                int EndParagraphIndex = Paragraphs.IndexOf(EndParagraph);
+
+                List<Paragraph> PerformParagraphs = Paragraphs.Skip(StartParagraphIndex).Take(EndParagraphIndex - StartParagraphIndex).ToList();
+
+
+                SB.AppendLine($"PerformScope = new string[] {{{string.Join(',', PerformParagraphs.Select(r => $"\"{NamingConverter.Convert(r.Name)}\"").ToArray())}}};");
+                SB.AppendLine($"TempStack = null;");
+
+                foreach (var PerformParagraph in PerformParagraphs)
                 {
-                    string ParagraphName = P.Name.Replace(".", string.Empty);
-                    if (!Append)
-                    {
-                        if (ParagraphName.Equals(Tokens[0]))
-                        {
-                            Append = true;                            
-                            SB.AppendLine($"if(!{NamingConverter.Convert(ParagraphName)}(true)){{return false;}}");
-                        }
-                    }
-                    else
-                    {
-                        SB.AppendLine($"if(!{NamingConverter.Convert(ParagraphName)}(true)){{return false;}}");
-                        if (ParagraphName.Equals(Tokens[1]))
-                            break;
-                    }
+                    SB.AppendLine($"if (TempStack != null && !TempStack.HasGOTO())");
+                    SB.AppendLine($"{{");
+                    SB.AppendLine($"    TempStack = FullStack.AddRangeAndReturnNew({NamingConverter.Convert(PerformParagraph.Name)}(false, PerformScope));");
+                    SB.AppendLine($"    if (TempStack.HasGOTO() && TempStack.GOTOOutOfScope(PerformScope)){{");
+                    SB.AppendLine($"        return FullStack;");
+                    SB.AppendLine($"    }}");
+                    SB.AppendLine($"}}");
+                    //string ParagraphName = P.Name.Replace(".", string.Empty);
+                    //if (!Append)
+                    //{
+                    //    if (ParagraphName.Equals(Tokens[0]))
+                    //    {
+                    //        Append = true;                            
+                    //        //SB.AppendLine($"if(!{NamingConverter.Convert(ParagraphName)}(true)){{return false;}}");
+                    //    }
+                    //}
+                    //if(Append)                    
+                    //{
+                    //    SB.AppendLine($"if(!{NamingConverter.Convert(ParagraphName)}(true)){{return false;}}");
+                    //    if (ParagraphName.Equals(Tokens[1]))
+                    //        break;
+                    //}
                 }
                 SB.AppendLine($"#endregion");
                 return SB.ToString();
@@ -80,9 +98,11 @@ namespace CobolToCSharp
 
                 SB.AppendLine($"#region {Line}");
                 SB.AppendLine($"for(;{Condition};){{");
-                SB.AppendLine($"    if(!{PerformName}(true)){{return false;}}");
-                SB.AppendLine("}");
+                SB.AppendLine($"    if(FullStack.AddRangAndCheckHasGOTO({PerformName}(false, NextScope)))");
+                SB.AppendLine($"        return FullStack;");
+                SB.AppendLine($"}}");
                 SB.AppendLine($"#endregion");
+                
                
                 return SB.ToString();
 
@@ -92,7 +112,8 @@ namespace CobolToCSharp
                 StringBuilder SB = new StringBuilder();
                 string PerformName = NamingConverter.Convert(Line.RegexReplace("PERFORM", string.Empty).Replace(".", string.Empty).Trim());
                 SB.AppendLine($"#region {Line}");
-                SB.AppendLine($"if(!{PerformName}(true)){{return false;}}");
+                SB.AppendLine($"if(FullStack.AddRangAndCheckHasGOTO({PerformName}(false, NextScope)))");
+                SB.AppendLine($"    return FullStack;");                
                 SB.AppendLine($"#endregion");
                 return SB.ToString();
             }

@@ -48,7 +48,7 @@ namespace CobolToCSharp
         public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, Dictionary<string,string> CobolVariablesDataTypes = null)
         {
             string OrLine = Line;
-            Line = Paragraph.RegexEXECSQL.Replace(Line,string.Empty).Replace("END-EXEC.", string.Empty).Trim();           
+            Line = Paragraph.RegexEXECSQL.Replace(Line,string.Empty).RegexReplace("END-EXEC\\.*", string.Empty).Trim();           
             StringBuilder Query = new StringBuilder(ExtractAndRenameParameters(ref Line));         
             if (RegexSelectStatement.IsMatch(Line))
             {            
