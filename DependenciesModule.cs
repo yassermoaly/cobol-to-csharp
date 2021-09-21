@@ -31,6 +31,7 @@ namespace CobolToCSharp
 
             Bind<IStatementConverter>().To<EXITProgramStatementConverter>();
             Bind<IStatementConverter>().To<ComputeStatementConverter>();
+            Bind<IStatementConverter>().To<StopRunStatementConverter>();
         }
     }
 }
