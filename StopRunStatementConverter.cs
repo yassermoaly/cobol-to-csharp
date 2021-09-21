@@ -12,7 +12,10 @@ namespace CobolToCSharp
 
         public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, Dictionary<string, string> CobolVariablesDataTypes = null)
         {
-            return "return FullStack;";
+            StringBuilder SB = new StringBuilder();
+            SB.AppendLine("FullStack.Add(new Stack(\"END\", string.Empty));");
+            SB.AppendLine("return FullStack;");
+            return SB.ToString();
         }
     }
 }

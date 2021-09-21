@@ -16,14 +16,22 @@ namespace CobolToCSharp
             if(Line.Contains("\"TXCOMMIT\""))
             {
                 SB.AppendLine($"#region {Line}");
-                SB.AppendLine("if(!TXCOMMIT())return false;");
+                SB.AppendLine("if(!TXCOMMIT())");
+                SB.AppendLine("{");
+                SB.AppendLine("    FullStack.Add(new Stack(\"END\", string.Empty));");
+                SB.AppendLine("    return FullStack;");
+                SB.AppendLine("}");
                 SB.AppendLine($"#endregion");
                 return SB.ToString();
             }
             else if (Line.Contains("\"TXROLLBACK\""))
             {
                 SB.AppendLine($"#region {Line}");
-                SB.AppendLine("if(!TXROLLBACK())return false;");
+                SB.AppendLine("if(!TXROLLBACK())");
+                SB.AppendLine("{");
+                SB.AppendLine("    FullStack.Add(new Stack(\"END\", string.Empty));");
+                SB.AppendLine("    return FullStack;");
+                SB.AppendLine("}");
                 SB.AppendLine($"#endregion");
                 return SB.ToString();
             }

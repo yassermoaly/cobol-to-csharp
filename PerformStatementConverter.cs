@@ -33,10 +33,10 @@ namespace CobolToCSharp
 
                 foreach (var PerformParagraph in PerformParagraphs)
                 {
-                    SB.AppendLine($"if (!TempStack.HasGOTO())");
+                    SB.AppendLine($"if (!TempStack.HasGOTOOrEnd())");
                     SB.AppendLine($"{{");
                     SB.AppendLine($"    TempStack = FullStack.AddRangeAndReturnNew({NamingConverter.Convert(PerformParagraph.Name)}(false, PerformScope));");
-                    SB.AppendLine($"    if (TempStack.HasGOTO() && TempStack.GOTOOutOfScope(PerformScope)){{");
+                    SB.AppendLine($"    if (TempStack.HasGOTOOrEnd() && TempStack.GOTOOutOfScope(PerformScope)){{");
                     SB.AppendLine($"        return FullStack;");
                     SB.AppendLine($"    }}");
                     SB.AppendLine($"}}");
@@ -98,7 +98,7 @@ namespace CobolToCSharp
 
                 SB.AppendLine($"#region {Line}");
                 SB.AppendLine($"for(;{Condition};){{");
-                SB.AppendLine($"    if(FullStack.AddRangAndCheckHasGOTO({PerformName}(false, null)))");
+                SB.AppendLine($"    if(FullStack.AddRangAndCheckHasGOTOOrEnd({PerformName}(false, null)))");
                 SB.AppendLine($"        return FullStack;");
                 SB.AppendLine($"}}");
                 SB.AppendLine($"#endregion");
@@ -112,7 +112,7 @@ namespace CobolToCSharp
                 StringBuilder SB = new StringBuilder();
                 string PerformName = NamingConverter.Convert(Line.RegexReplace("PERFORM", string.Empty).Replace(".", string.Empty).Trim());
                 SB.AppendLine($"#region {Line}");
-                SB.AppendLine($"if(FullStack.AddRangAndCheckHasGOTO({PerformName}(false, null)))");
+                SB.AppendLine($"if(FullStack.AddRangAndCheckHasGOTOOrEnd({PerformName}(false, null)))");
                 SB.AppendLine($"    return FullStack;");                
                 SB.AppendLine($"#endregion");
                 return SB.ToString();

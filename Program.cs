@@ -20,10 +20,10 @@ namespace CobolToCSharp
     {
         
        private static readonly string WorkingDir = @"input";
-        // private static readonly string FileName = "sc700.cbl";
-       //   private static readonly string FileName = "sc499.cbl";
-        //private static readonly string FileName = "sc500.cbl";
-        private static readonly string FileName = "DEMO.cbl";
+       // private static readonly string FileName = "sc700.cbl";
+        //private static readonly string FileName = "sc499.cbl";
+        private static readonly string FileName = "sc500.cbl";
+        //private static readonly string FileName = "DEMO.cbl";
         private static readonly string NameSpace = "OSS_Domain";
        //private static readonly string FileName = "DEMO.cbl";
         //private static readonly string FileName = "small.cbl";
@@ -153,9 +153,10 @@ namespace CobolToCSharp
                 CodeWriter.WriteLine($"using System.Threading.Tasks;");
                 CodeWriter.WriteLine($"namespace {NameSpace}");
                 CodeWriter.WriteLine("{");
-                CodeWriter.WriteLine($"    public partial class {ClassName} {{");                                
+                CodeWriter.WriteLine($"    public partial class {ClassName} : IService {{");                                
                 using (StreamWriter LogWriter = new StreamWriter($@"{WorkingDir}\compare-result.log"))
                 {
+                    CodeWriter.WriteLine($"        public string Name {{get{{return \"{ClassName}\";}}}}");
                     CodeWriter.WriteLine($"        public virtual void Run()");
                     CodeWriter.WriteLine($"        {{");
                     CodeWriter.WriteLine($"            {NamingConverter.Convert(Paragraphs.First().Name)}(true,null);");                    
