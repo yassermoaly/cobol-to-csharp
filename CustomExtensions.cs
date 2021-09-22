@@ -38,5 +38,18 @@ namespace CobolToCSharp
         {
             return new Regex(oldValue.RegexUpperLower()).Replace(source, newValue);            
         }
+
+        public static string RegexReplace(this string source,string Regex,string OldValue,string NewValue)
+        {
+            int ExtraAdded = 0;
+            foreach (Match Match in new Regex(Regex).Matches(source))
+            {
+                string NewReplace = Match.Value.RegexReplace(OldValue, NewValue);
+
+                source = source.PostionReplace(Match.Index+ ExtraAdded, Match.Length, NewReplace);
+                ExtraAdded += NewReplace.Length- Match.Length;
+            }
+            return source;
+        }
     }
 }

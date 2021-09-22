@@ -20,7 +20,7 @@ namespace CobolToCSharp
     {
         
        private static readonly string WorkingDir = @"input";
-       // private static readonly string FileName = "sc700.cbl";
+       //private static readonly string FileName = "sc700.cbl";
         //private static readonly string FileName = "sc499.cbl";
         private static readonly string FileName = "sc500.cbl";
         //private static readonly string FileName = "DEMO.cbl";
@@ -145,7 +145,7 @@ namespace CobolToCSharp
                 SetBlocks(Paragraph);               
             }            
             using (StreamWriter CodeWriter = new StreamWriter($@"{WorkingDir}\{ClassName}\{ClassName}.cs"))
-            {
+            {           
                 CodeWriter.WriteLine($"using System;");
                 CodeWriter.WriteLine($"using System.Collections.Generic;");
                 CodeWriter.WriteLine($"using System.Linq;");
@@ -167,7 +167,7 @@ namespace CobolToCSharp
                         CodeWriter.WriteLine($"        private List<Stack> {NamingConverter.Convert(Paragraph.Name)}(bool CallNext,string[] NextScope)");
                         CodeWriter.WriteLine($"        {{");
                         bool LastStatementIsReturn = false;
-                        CodeWriter.WriteLine($"             List<Stack> FullStack = Stack.New(CallNext, \"{NamingConverter.Convert(Paragraph.Name)}\");");
+                        CodeWriter.WriteLine($"            List<Stack> FullStack = Stack.New(CallNext, \"{NamingConverter.Convert(Paragraph.Name)}\");");
                         ConvertParagraph(Paragraph, LogWriter,CodeWriter, DataTypes, out LastStatementIsReturn);
                         if (!LastStatementIsReturn)
                         {

@@ -20,7 +20,7 @@ namespace CobolToCSharp
                 if(string.IsNullOrEmpty(_Converted))
                     _Converted = StatementConverterFactory.CreateInstance(this).Convert(Raw, Paragraph, Paragraphs, CobolVariablesDataTypes);                
 
-                if(_Converted.Contains("if( INDATE==Convert.ToString(ZERO) || INDATY      < 2008 || INDATY      == 0    || INDATM      < 01   || INDATM      > 12   || INDATD      < 01   || INDATD      > 31)"))
+                if(_Converted.Contains("if( SV_VLI   == 600      && INOPCOD  == SVOPCOD  A &&NTENUM  == SVTENUM  AND &&RVCOD == SVSRVCOD AND I &&RT  == SVSTART  AND INC && RT  == SVCASE)"))
                 {
                     _Converted = StatementConverterFactory.CreateInstance(this).Convert(Raw, Paragraph, Paragraphs, CobolVariablesDataTypes);
                 }
