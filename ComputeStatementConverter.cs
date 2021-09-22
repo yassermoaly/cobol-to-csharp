@@ -25,7 +25,7 @@ namespace CobolToCSharp
             StringBuilder SB = new StringBuilder();
             for (int i = 0; i < RightHandTokens.Length; i++)
             {
-                SB.Append($"Convert.ToInt64({NamingConverter.Convert(RightHandTokens[i].Trim())})");
+                SB.Append($"(double){NamingConverter.Convert(RightHandTokens[i].Trim())}");
                 if(i+1< RightHandTokens.Length)
                 {
                     SB.Append($"{RightHandMatches[i].Value} ");
