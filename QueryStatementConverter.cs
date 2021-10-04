@@ -47,6 +47,10 @@ namespace CobolToCSharp
        
         public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, Dictionary<string,string> CobolVariablesDataTypes = null)
         {
+            if(Line.Contains("DECLARE CULP CURSOR"))
+            {
+                int x = 10;
+            }
             string OrLine = Line;
             Line = Paragraph.RegexEXECSQL.Replace(Line,string.Empty).RegexReplace("END-EXEC\\.*", string.Empty).Trim();           
             StringBuilder Query = new StringBuilder(ExtractAndRenameParameters(ref Line));         
@@ -73,7 +77,7 @@ namespace CobolToCSharp
                 for (int h = 0; h < FillParameters.Length; h++)
                 {
                     string ConvertType = string.Empty;
-                    string VariableDataType = CobolVariablesDataTypes[FillParameters[h]];
+                    string VariableDataType = CobolVariablesDataTypes[FillParameters[h].Replace("_","-")];
                     switch (VariableDataType)
                     {
                         case "double":
@@ -110,7 +114,7 @@ namespace CobolToCSharp
             
             else if (RegexDeclareCursorStatement.IsMatch(Line))
             {                
-                Match DeclareCursor = new Regex($"^{"DECLARE".RegexUpperLower()}.+{"CURSOR".RegexUpperLower()} {"FOR".RegexUpperLower()} ").Match(Line);
+                Match DeclareCursor = new Regex($"^{"DECLARE".RegexUpperLower()}[ ]+.+{"CURSOR".RegexUpperLower()}[ ]+{"FOR".RegexUpperLower()} ").Match(Line);
                 Line = Line.Substring(DeclareCursor.Index + DeclareCursor.Length);
                 string CursorName = DeclareCursor.Value.Replace("DECLARE", string.Empty).Replace("CURSOR", string.Empty).Replace("FOR", string.Empty).Trim();
                 Query.AppendLine($"SQL = \"{Line}\";");

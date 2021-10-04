@@ -20,9 +20,15 @@ namespace CobolToCSharp
     {
         
        private static readonly string WorkingDir = @"input";
-       //private static readonly string FileName = "sc700.cbl";
+
+        //private static readonly string FileName = "sc031.cbl";
+        //private static readonly string FileName = "sc033.cbl";
+        //private static readonly string FileName = "sc601.cbl";
+        //private static readonly string FileName = "sc605.cbl";
+        private static readonly string FileName = "sc607.cbl";
+        //private static readonly string FileName = "sc700.cbl";
         //private static readonly string FileName = "sc499.cbl";
-        private static readonly string FileName = "sc500.cbl";
+        //   private static readonly string FileName = "sc500.cbl";
         //private static readonly string FileName = "DEMO.cbl";
         private static readonly string NameSpace = "OSS_Domain";
        //private static readonly string FileName = "DEMO.cbl";
@@ -30,7 +36,7 @@ namespace CobolToCSharp
        private static int BlockCount = 0;
        #region Regex        
         private static Regex RegexCOMMENT = new Regex(@"^\*");
-        private static string StringRegexStatement = @"(MOVE|IF|ELSE[ ]+IF|END-IF|PERFORM|ELSE|DISPLAY|ADD|SUBTRACT|COMPUTE|CALL|DIVIDE|MULTIPLY|GO[ ]+TO|GO[ ]+|EXIT[ ]*\.|EXIT[ ]+PROGRAM|END[ ]+PROGRAM|STOP[ ]+RUN)".RegexUpperLower();
+        private static string StringRegexStatement = @"(INSPECT[ ]+|MOVE[ ]+|IF|ELSE[ ]+IF|END-IF|PERFORM[ ]+|ELSE|DISPLAY[ ]+|ADD[ ]+|SUBTRACT[ ]+|COMPUTE[ ]+|CALL[ ]+|DIVIDE[ ]+|MULTIPLY[ ]+|GO[ ]+TO|GO[ ]+|EXIT[ ]*\.|EXIT[ ]+PROGRAM|END[ ]+PROGRAM|STOP[ ]+RUN)".RegexUpperLower();
         private static Regex RegexStatement = new Regex($"^{StringRegexStatement}");
         private static Regex RegexContainsStatement = new Regex($"{StringRegexStatement}");
         private static readonly Regex ParagraphRegex = new Regex(@"^[a-zA-Z0-9-_]+\.$");
@@ -58,8 +64,7 @@ namespace CobolToCSharp
             return null;
         }
         static void Main(string[] args)
-        {
-
+        {            
             DateTime SD = DateTime.Now;
             Console.WriteLine("Start Processing...");
             Parse(FileName);
@@ -318,7 +323,9 @@ namespace CobolToCSharp
             var OutBindVariable = ScreenBlocks.First(r => r.Name == ScreenVARIABLE.OUTPUT);
 
             CobolVariable INTRAN = FindCobolVariableByName("INTRAN", CobolVariables);
-            CobolVariable OUTTRAN = FindCobolVariableByName("OUTTRAN", CobolVariables);
+            var OUT_TRAN = FindCobolVariableByName("OUTPUT-TRAN", CobolVariables);
+            Regex OUTTRANRegex = new Regex("OUT-*TRAN");
+            CobolVariable OUTTRAN = OUT_TRAN.Childs.First(r=> OUTTRANRegex.IsMatch(r.Raw));
             int index = 0;
             List<CobolVariable> INTRANBaseChilds = INTRAN.GetBaseChilds();
             foreach (var InputBindVariableChild in InputBindVariable.Childs)
@@ -361,7 +368,11 @@ namespace CobolToCSharp
                     {
                         if (!ScreenElementsDict.ContainsKey(RowMapping.Key))
                             ScreenElementsDict.Add(RowMapping.Key, new List<ScreenElement>());
-                        ScreenElementsDict[RowMapping.Key].Last().ScreenBlock = Child;
+                        if (ScreenElementsDict[RowMapping.Key].LastOrDefault() != null)
+                        {
+                            ScreenElementsDict[RowMapping.Key].Last().ScreenBlock = Child;
+                        }
+                        
                     }
                 }              
             }
@@ -550,11 +561,19 @@ namespace CobolToCSharp
             int? Level = null;
             int? ActualLevel = null;
             string IncludeFilePath = string.Empty;
+            StreamWriter MissingFilesWriter = new StreamWriter($"{WorkingDir}\\{Path.GetFileNameWithoutExtension(FileName)}-missing-files.log");
             for (int i = 0; i < Lines.Count; i++)
             {
                 RowNum++;
                 Line = Lines[i];
-               
+                //if(Line.Contains("IF NOT TP-OK DISPLAY \"SC031 : BAD STATUS FROM TPSERVICES = "))
+                //{
+                //    int x = 1230;
+                //}
+                //if(Line.Contains(" COPY \"WORK-LINKAGE\"."))
+                //{
+                //    int x = 10;
+                //}
                 if (!string.IsNullOrEmpty(Line))
                 {
                     if (Line.Contains("WORKING-STORAGE SECTION."))
@@ -571,8 +590,9 @@ namespace CobolToCSharp
                     }
                     else if (Line.Contains("PROCEDURE DIVISION"))
                     {
-                        
-                        if(string.IsNullOrEmpty(Config.Values["ProcedureDivisionEntryParagraph"]))
+                        MissingFilesWriter.Close();
+                        MissingFilesWriter.Dispose();
+                        if (string.IsNullOrEmpty(Config.Values["ProcedureDivisionEntryParagraph"]))
                             ParseMode = ParseMode.COLLECT_PROCEDURE_DIVISION;
                         else
                             ParseMode = ParseMode.NONE;
@@ -593,11 +613,36 @@ namespace CobolToCSharp
                                 {
                                     continue;
                                 }
-                                else if(new Regex("EXEC SQL").IsMatch(Line) || new Regex("COPY[ ]+\"[a-zA-Z0-9-]+\"\\.").IsMatch(Line))
+                                else if (new Regex("COPY[ ]+\"[a-zA-Z0-9-]+\"\\.").IsMatch(Line))
+                                {
+                                    string[] IncludeLines = null;
+                                    Match CopyMatch = new Regex("COPY[ ]+\"[a-zA-Z0-9-]+\"\\.").Match(Line);
+                                    if (CopyMatch.Success)
+                                    {
+                                        string IncludeFileName = CopyMatch.Value.RegexReplace("COPY", string.Empty).Replace("\"", string.Empty).Trim();
+                                        IncludeFilePath = $@"{WorkingDir}\{IncludeFileName}";
+                                        if (File.Exists(IncludeFilePath))
+                                        {
+                                            IncludeLines = File.ReadAllLines(IncludeFilePath);
+                                            if (IncludeLines != null && IncludeLines.Length>0)
+                                            {
+                                                Lines.InsertRange(i + 1, IncludeLines);
+                                                addedLines += IncludeLines.Length;
+                                            }
+                                            continue;
+                                        }
+                                        else
+                                        {
+                                            MissingFilesWriter.WriteLine(Path.GetFileName(IncludeFilePath));
+                                            Console.WriteLine($"Missing file {IncludeFilePath}");
+                                        }
+                                    }
+                                }
+                                else if(new Regex("EXEC SQL").IsMatch(Line))
                                 {                                  
                                     string[] IncludeLines = null;
                                     while (true)
-                                    {
+                                    {                                        
                                         i++;
                                         Line = Lines[i].Replace('\t', ' ');
                                        
@@ -605,13 +650,16 @@ namespace CobolToCSharp
                                             break;
                                        
                                         
-                                        Match IncludeMatch = new Regex($@"{"INCLUDE".RegexUpperLower()}[ ]+[a-zA-Z0-9-_\.]+").Match(Line);
-                                        Match CopyMatch = new Regex("COPY[ ]+\"[a-zA-Z0-9-]+\"\\.").Match(Line);
-                                        if (IncludeMatch.Success || CopyMatch.Success)
+                                        Match IncludeMatch = new Regex($@"{"INCLUDE".RegexUpperLower()}[ ]+[a-zA-Z0-9-_\.]+").Match(Line);                                        
+                                        if (IncludeMatch.Success)
                                         {
-                                            string IncludeFileName = IncludeMatch.Success ? IncludeMatch.Value.RegexReplace("INCLUDE", string.Empty).Trim():CopyMatch.Value.RegexReplace("COPY", string.Empty).Replace("\"", string.Empty).Trim();
+                                            string IncludeFileName = IncludeMatch.Value.RegexReplace("INCLUDE", string.Empty).Trim();
                                             IncludeFilePath = $@"{WorkingDir}\{IncludeFileName}";
-                                                                                        
+
+                                            if (IncludeFileName.Contains("WORK-LINKAGE"))
+                                            {
+                                                int x = 10;
+                                            }
                                             if (File.Exists(IncludeFilePath))
                                             {
                                                 IncludeLines = File.ReadAllLines(IncludeFilePath);
@@ -619,9 +667,9 @@ namespace CobolToCSharp
                                             }
                                             else
                                             {
+                                                MissingFilesWriter.WriteLine(Path.GetFileName(IncludeFilePath));
                                                 Console.WriteLine($"Missing file {IncludeFilePath}");
-                                            }
-                                            if (CopyMatch.Success) break;
+                                            }                                           
                                         }
                                         
                                     }
@@ -702,17 +750,17 @@ namespace CobolToCSharp
                                 continue;
                             }
 
-                            if (Line.Contains("IF NOT TP-OK"))
-                            {
-                                int asd1 = 00;
-                            }
+                            //if (Line.Contains("IF NOT TP-OK"))
+                            //{
+                            //    int asd1 = 00;
+                            //}
 
                             MatchCollection Collection = RegexContainsStatement.Matches(Line);
                             if (Collection.Count > 1)
                             {
                                 char PreChar = Line[Collection[1].Index - 1];
                                 char PostChar = Collection[1].Index + Collection[1].Length < Line.Length ? Line[Collection[1].Index + Collection[1].Length] : '_';
-                                if ((PreChar == ' ' || PreChar == '.') && PostChar == ' ')
+                                if ((PreChar == ' ' || PreChar == '.') && (PostChar == ' ' || PostChar == '"'))
                                 {
                                     string temp = Line;
                                     Line = temp.Substring(0, Collection[1].Index).Trim();
@@ -757,9 +805,16 @@ namespace CobolToCSharp
                                     Paragraphs.Last().AddStatement(SBStatement.ToString(), StatementRowNum - addedLines);
                                 StatementRowNum = RowNum;
                                 SBStatement = new StringBuilder();
+                                if (Line.EndsWith("."))
+                                    Line = Line.Substring(0, Line.Length - 1);
+                                var Count = Paragraphs.Count(r => r.Name == Line);
+                                if (Count == 1)
+                                {
+                                    Paragraphs.First(r => r.Name == Line).Name += "-1";
+                                }
                                 Paragraphs.Add(new Paragraph()
                                 {
-                                    Name = Line,
+                                    Name = Count==0?Line:$"{Line}-{(Count+1)}",
                                     Paragraphs = Paragraphs
                                 });
                                 continue;

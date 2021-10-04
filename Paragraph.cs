@@ -15,6 +15,8 @@ namespace CobolToCSharp
         public static Regex RegexSTOPRUN = new Regex("^STOP[ ]+RUN".RegexUpperLower());        
         public static Regex RegexEXITPROGRAM = new Regex("(^EXIT)|(^EXIT[ ]+PROGRAM)".RegexUpperLower());
         public static Regex RegexMOVE = new Regex("^MOVE".RegexUpperLower());
+        public static Regex RegexINSPECT = new Regex("^INSPECT".RegexUpperLower());
+        
         public static Regex RegexIF = new Regex("^IF".RegexUpperLower());
         public static Regex RegexPERFORM = new Regex("^PERFORM".RegexUpperLower());
         public static Regex RegexELSE = new Regex("^ELSE".RegexUpperLower());
@@ -101,6 +103,8 @@ namespace CobolToCSharp
                 return StatementType.END_PROGRAM;
             else if (RegexSTOPRUN.IsMatch(Line))
                 return StatementType.STOP_RUN;
+            else if (RegexINSPECT.IsMatch(Line))
+                return StatementType.INSPECT;
 
             throw new Exception($"Statement Type not handeled {Line}");
         }

@@ -98,34 +98,78 @@ namespace CobolToCSharp
                 int x123 = 100;
             }
             int ExtraAddedCharacters = 0;
-            foreach (Match Match in new Regex("(([Xx]*'[^']+')|([Xx]*\"[^\"]\")|([0-9]+(\\.[0-9]+)*)|([a-zA-Z_0-9]+))+[ ]*=[ ]*=[ ]*(([Xx]*'[^']+')|([Xx]*\"([^\"]+)\")|([0-9]+(\\.[0-9]+)*)|([a-zA-Z_0-9]+))").Matches(Line))
+            if (Line.Contains("if( SV_VLI       == 500      &&"))
             {
-                string[] Tokens = Match.Value.Split('=', StringSplitOptions.RemoveEmptyEntries).Select(r=>r.Trim()).ToArray();
+                int x = 10;
+            }
+            foreach (Match Match in new Regex("(([Xx]*'[^']+')|([Xx]*\"[^\"]\")|([0-9]+(\\.[0-9]+)*)|([a-zA-Z_0-9]+))+[ ]*(=[ ]*= | ![ ]*=)[ ]*(([Xx]*'[^']+')|([Xx]*\"([^\"]+)\")|([0-9]+(\\.[0-9]+)*)|([a-zA-Z_0-9]+))").Matches(Line))
+            {
+                
+
+                string[] Tokens = Match.Value.Split(new char[] { '=','!'}, StringSplitOptions.RemoveEmptyEntries).Select(r=>r.Trim()).ToArray();
                 if (Tokens.Length != 2)
                 {
                     throw new Exception("Invalid If Regex");
                 }
                 string LeftHandType = GetDatatype(Tokens[0], CobolVariablesDataTypes);
                 string RightHandType = GetDatatype(Tokens[1], CobolVariablesDataTypes);
+                
+                string LeftHand = Tokens[0].Trim();
+                string RightHand = Tokens[1].Trim();
+
+                bool ApplyChange = false;
+                if (LeftHand.StartsWith("X\""))
+                {
+                    LeftHand = $"{LeftHand.Substring(1)}.GetStringValueFromHexa()";
+                    ApplyChange = true;
+                }
+                if (RightHand.StartsWith("X\""))
+                {
+                    RightHand = $"{RightHand.Substring(1)}.GetStringValueFromHexa()";
+                    ApplyChange = true;
+                }
+                if(LeftHandType != RightHandType)
+                {
+                    ApplyChange = true;
+                }
 
 
-                if (LeftHandType != RightHandType)
+                if (ApplyChange)
                 {
                     if (LeftHandType != "undefined" && RightHandType != "undefined")
                     {
-                        string LeftHand = Tokens[0];
-                        string RightHand = Tokens[1];
-                        if (LeftHandType == "string")
-                            LeftHand = LeftHand.RegexReplace("X", string.Empty).Replace("'", "\"");
-                        else
+    
+                        if (LeftHandType != "string")
                             LeftHand = $"Convert.ToString({LeftHand})";
-                        if (RightHandType == "string")
-                            RightHand = RightHand.RegexReplace("X", string.Empty).Replace("'", "\"");
-                        else
+                        if (RightHandType != "string")
                             RightHand = $"Convert.ToString({RightHand})";
-                      
 
-                        string NewValue = $"{LeftHand}=={RightHand}";
+                        //if (RightHandType == "string")
+                        //{
+
+                        //    RightHand = RightHand.Trim();
+                        //    if (RightHand.ToUpper().StartsWith("X"))
+                        //    {
+                        //        RightHand = $"{RightHand.Substring(1)}.GetStringValueFromHexa()";
+                        //    }
+                        //    else
+                        //    {
+                        //        RightHand = RightHand.Replace("'", "\"");
+                        //    }
+
+                        //}
+                        //else
+                        //    RightHand = $"Convert.ToString({RightHand})";
+
+                        string Operator = string.Empty;
+                        if (new Regex("=[ ]*=").IsMatch(Match.Value))
+                            Operator = "==";
+                        else if (new Regex("![ ]*=").IsMatch(Match.Value))
+                            Operator = "!=";
+                        else
+                            throw new Exception("Invalid operator type");
+
+                        string NewValue = $"{LeftHand} {Operator} {RightHand}";
                         Line = Line.PostionReplace(Match.Index+ ExtraAddedCharacters, Match.Length, NewValue);
                         ExtraAddedCharacters += NewValue.Length - Match.Length;
                     }

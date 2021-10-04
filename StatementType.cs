@@ -29,6 +29,7 @@ namespace CobolToCSharp
         BEGIN_BLOCK,
         END_BLOCK,
         END_PROGRAM,
-        STOP_RUN
+        STOP_RUN,
+        INSPECT
     }
 }

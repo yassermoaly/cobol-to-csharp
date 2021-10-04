@@ -13,6 +13,10 @@ namespace CobolToCSharp
 
         public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, Dictionary<string, string> CobolVariablesDataTypes = null)
         {
+            if(Line.Contains("COMPUTE POINT-DT-YEAR = POINT-DT-YEAR - 1"))
+            {
+                int asdasd = 100;
+            }
             Line = Line.RegexReplace("COMPUTE[ ]+", "COMPUTE", string.Empty).Trim();
             string[] Tokens = Line.Split('=');
             string LeftHand = Tokens[0];
@@ -20,7 +24,7 @@ namespace CobolToCSharp
             if (RightHand.EndsWith("."))
                 RightHand = RightHand.Remove(RightHand.Length - 1,1);
 
-            string[] RightHandTokens = new Regex("[/*+-]").Split(RightHand);
+            string[] RightHandTokens = new Regex("[/*+-][ ]+").Split(RightHand);
             MatchCollection RightHandMatches = new Regex("[/*+-]").Matches(RightHand);
             StringBuilder SB = new StringBuilder();
             for (int i = 0; i < RightHandTokens.Length; i++)
