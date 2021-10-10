@@ -30,6 +30,7 @@ namespace CobolToCSharp
         END_BLOCK,
         END_PROGRAM,
         STOP_RUN,
-        INSPECT
+        INSPECT,
+        ACCEPT
     }
 }

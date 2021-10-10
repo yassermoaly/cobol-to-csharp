@@ -327,7 +327,7 @@ namespace CobolToCSharp
             }
         }
         public override string ToString()
-        {           
+        {
             string[] ExecludedVraibles = Config.Values["ExecludedVariables"].Split(',');
             if (ExecludedVraibles.Contains(RawName)) return string.Empty;
             StringBuilder SB = new StringBuilder();

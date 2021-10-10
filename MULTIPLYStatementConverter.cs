@@ -13,10 +13,7 @@ namespace CobolToCSharp
 
         public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, Dictionary<string,string> CobolVariablesDataTypes = null)
         {
-            if(Line.Equals("MULTIPLY 1.14 BY SLCT-RG2."))
-            {
-                int X = 10;
-            }
+           
             if(new Regex($@"{"MULTIPLY".RegexUpperLower()}[ ]+([a-zA-Z0-9-]+)[ ]+{"BY".RegexUpperLower()}[ ]+([a-zA-Z0-9-]+|[0-9]*.[0-9]*)[ ]+{"GIVING".RegexUpperLower()}[ ]+([a-zA-Z0-9-]+)([ ]+{"ROUNDED".RegexUpperLower()})*").IsMatch(Line))
             {
                 string[] Fields = Line.RegexReplace("MULTIPLY", string.Empty).RegexReplace("BY", string.Empty).RegexReplace("GIVING", string.Empty).RegexReplace("ROUNDED", string.Empty).Split(' ',StringSplitOptions.RemoveEmptyEntries).Select(r=>NamingConverter.Convert(r)).ToArray();

@@ -19,11 +19,6 @@ namespace CobolToCSharp
             {
                 if(string.IsNullOrEmpty(_Converted))
                     _Converted = StatementConverterFactory.CreateInstance(this).Convert(Raw, Paragraph, Paragraphs, CobolVariablesDataTypes);                
-
-                if(_Converted.Contains("if( SV_VLI   == 600      && INOPCOD  == SVOPCOD  A &&NTENUM  == SVTENUM  AND &&RVCOD == SVSRVCOD AND I &&RT  == SVSTART  AND INC && RT  == SVCASE)"))
-                {
-                    _Converted = StatementConverterFactory.CreateInstance(this).Convert(Raw, Paragraph, Paragraphs, CobolVariablesDataTypes);
-                }
                 return _Converted;
             }
         }

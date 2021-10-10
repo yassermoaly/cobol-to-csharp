@@ -10,9 +10,9 @@ namespace CobolToCSharp
     public class QueryStatementConverter : IStatementConverter
     {
 
-        static Dictionary<string, string> CursorSelectQueries = new Dictionary<string, string>();
+        public static Dictionary<string, string> CursorSelectQueries = new Dictionary<string, string>();
         private static readonly Regex RegexSelectStatement = new Regex($"^{"SELECT".RegexUpperLower()}.+{"INTO".RegexUpperLower()}.+{"FROM".RegexUpperLower()}");
-        private static readonly Regex RegexInsertStatement = new Regex($@"^{"INSERT".RegexUpperLower()}.+{"INTO".RegexUpperLower()}.+{"VALUES".RegexUpperLower()}.+\(.+\)");
+        private static readonly Regex RegexInsertStatement = new Regex($@"^{"INSERT".RegexUpperLower()}.+{"INTO".RegexUpperLower()}.+({"SELECT".RegexUpperLower()}|{"VALUES".RegexUpperLower()}).+\(.+\)");
         private static readonly Regex RegexUpdateStatement = new Regex($@"^{"UPDATE".RegexUpperLower()}.+{"SET".RegexUpperLower()}.+{"WHERE".RegexUpperLower()}.+");
         private static readonly Regex RegexDeclareCursorStatement = new Regex($@"^{"DECLARE".RegexUpperLower()}.+{"CURSOR".RegexUpperLower()}.+{"FOR".RegexUpperLower()}.+{"SELECT".RegexUpperLower()}.+");
         private static readonly Regex RegexFetchCursorStatement = new Regex($@"^{"FETCH".RegexUpperLower()}.+{"INTO".RegexUpperLower()}.+");
@@ -20,37 +20,42 @@ namespace CobolToCSharp
         private static readonly Regex RegexCloseCursorStatement = new Regex($@"^{"CLOSE".RegexUpperLower()}.+");
         private static readonly Regex RegexDeleteStatement = new Regex($@"^{"DELETE".RegexUpperLower()}.+({"FROM".RegexUpperLower()})*.+{"WHERE".RegexUpperLower()}.+");
         private static readonly Regex RegexSqlParameter = new Regex(":[ ]*[a-zA-Z][a-zA-Z0-9-]+");
-        private static readonly Regex RegexFillInParameters = new Regex($"{"INTO".RegexUpperLower()}.+{"FROM".RegexUpperLower()}");
+        private static readonly Regex RegexFillInParameters = new Regex($"{"INTO".RegexUpperLower()}(.*?){"[ ]+FROM".RegexUpperLower()}");
         public List<StatementType> StatementTypes => new List<StatementType>(new StatementType[] { StatementType.QUERY });
         private string ExtractAndRenameParameters(ref string Line)
         {
+            bool IsSelectStatement = RegexSelectStatement.IsMatch(Line);
             Match FillParametersMatch = RegexFillInParameters.Match(Line);
-            string[] FillParameters = FillParametersMatch.Success?FillParametersMatch.Value.Substring(4, FillParametersMatch.Value.Length - 8).Replace(":", string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries).Select(r => r.Trim()).ToArray(): new string[0];
+            string[] FillParameters = IsSelectStatement ? (FillParametersMatch.Success?FillParametersMatch.Value.Substring(4, FillParametersMatch.Value.Length - 8).Replace(":", string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries).Select(r => r.Trim()).ToArray(): new string[0]): new string[0];
             StringBuilder Query = new StringBuilder();
-            Query.AppendLine("Parameters=new Dictionary<string,object>();");
+            Query.AppendLine("Parameters=new Dictionary<string,object>()");
+            Query.AppendLine("{");            
             HashSet<string> Parameters = new HashSet<string>();
-            string LineWithoutFillIn = FillParametersMatch.Value.Length == 0 ? Line : Line.Replace(FillParametersMatch.Value, string.Empty);
+            string LineWithoutFillIn = IsSelectStatement?FillParametersMatch.Value.Length == 0 ? Line : Line.Replace(FillParametersMatch.Value, string.Empty): Line;
+            bool HasEmptyParameters = true;
             foreach (Match Match in RegexSqlParameter.Matches(LineWithoutFillIn))
             {
                 string ParameterName = NamingConverter.Convert(Match.Value).Replace(":", string.Empty).Trim();
                 if (!Parameters.Contains(ParameterName))
                 {
-                    Query.AppendLine($"Parameters.Add(\"{ NamingConverter.Convert(ParameterName)}\", {NamingConverter.Convert(ParameterName)});");
+                    HasEmptyParameters = false;
+                    Query.AppendLine($"    {{ \"{ NamingConverter.Convert(ParameterName)}\",{NamingConverter.Convert(ParameterName)} }},");
+                    //Query.AppendLine($"Parameters.Add(\"{ NamingConverter.Convert(ParameterName)}\", {NamingConverter.Convert(ParameterName)});");
                     Line = Line.Replace(Match.Value, $":{NamingConverter.Convert(ParameterName)}");
                     Parameters.Add(ParameterName);
                 }
             }
-            
+            if (HasEmptyParameters)
+                return string.Empty;
+            //Remove Last , 
+            Query.Remove(Query.ToString().LastIndexOf(','), 1);
+            Query.AppendLine("};");            
             return Query.ToString();
         }
 
        
         public string Convert(string Line, Paragraph Paragraph, List<Paragraph> Paragraphs, Dictionary<string,string> CobolVariablesDataTypes = null)
         {
-            if(Line.Contains("DECLARE CULP CURSOR"))
-            {
-                int x = 10;
-            }
             string OrLine = Line;
             Line = Paragraph.RegexEXECSQL.Replace(Line,string.Empty).RegexReplace("END-EXEC\\.*", string.Empty).Trim();           
             StringBuilder Query = new StringBuilder(ExtractAndRenameParameters(ref Line));         
@@ -118,7 +123,8 @@ namespace CobolToCSharp
                 Line = Line.Substring(DeclareCursor.Index + DeclareCursor.Length);
                 string CursorName = DeclareCursor.Value.Replace("DECLARE", string.Empty).Replace("CURSOR", string.Empty).Replace("FOR", string.Empty).Trim();
                 Query.AppendLine($"SQL = \"{Line}\";");
-                Query.AppendLine($"Cursors.Add(new Cursor(\"{CursorName}\",SQL,Parameters));");              
+                //Query.AppendLine($"Cursors.Add(new Cursor(\"{CursorName}\",SQL,Parameters));");              
+                Query.AppendLine($"Cursors.AddNew(\"{CursorName}\",SQL,Parameters);");
                 CursorSelectQueries.Add(CursorName, Line);
                 return Query.ToString();
             }

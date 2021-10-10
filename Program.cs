@@ -24,11 +24,11 @@ namespace CobolToCSharp
         //private static readonly string FileName = "sc031.cbl";
         //private static readonly string FileName = "sc033.cbl";
         //private static readonly string FileName = "sc601.cbl";
-        //private static readonly string FileName = "sc605.cbl";
-        private static readonly string FileName = "sc607.cbl";
+        private static string FileName = "sc605.cbl";
+        //private static readonly string FileName = "sc607.cbl";
         //private static readonly string FileName = "sc700.cbl";
         //private static readonly string FileName = "sc499.cbl";
-        //   private static readonly string FileName = "sc500.cbl";
+           //private static string FileName = "sc500.cbl";
         //private static readonly string FileName = "DEMO.cbl";
         private static readonly string NameSpace = "OSS_Domain";
        //private static readonly string FileName = "DEMO.cbl";
@@ -36,7 +36,7 @@ namespace CobolToCSharp
        private static int BlockCount = 0;
        #region Regex        
         private static Regex RegexCOMMENT = new Regex(@"^\*");
-        private static string StringRegexStatement = @"(INSPECT[ ]+|MOVE[ ]+|IF|ELSE[ ]+IF|END-IF|PERFORM[ ]+|ELSE|DISPLAY[ ]+|ADD[ ]+|SUBTRACT[ ]+|COMPUTE[ ]+|CALL[ ]+|DIVIDE[ ]+|MULTIPLY[ ]+|GO[ ]+TO|GO[ ]+|EXIT[ ]*\.|EXIT[ ]+PROGRAM|END[ ]+PROGRAM|STOP[ ]+RUN)".RegexUpperLower();
+        private static string StringRegexStatement = @"(ACCEPT[ ]+|INSPECT[ ]+|MOVE[ ]+|IF|ELSE[ ]+IF|END-IF|PERFORM[ ]+|ELSE|DISPLAY[ ]+|ADD[ ]+|SUBTRACT[ ]+|COMPUTE[ ]+|CALL[ ]+|DIVIDE[ ]+|MULTIPLY[ ]+|GO[ ]+TO|GO[ ]+|EXIT[ ]*\.|EXIT[ ]+PROGRAM|END[ ]+PROGRAM|STOP[ ]+RUN)".RegexUpperLower();
         private static Regex RegexStatement = new Regex($"^{StringRegexStatement}");
         private static Regex RegexContainsStatement = new Regex($"{StringRegexStatement}");
         private static readonly Regex ParagraphRegex = new Regex(@"^[a-zA-Z0-9-_]+\.$");
@@ -63,11 +63,44 @@ namespace CobolToCSharp
             }
             return null;
         }
+        static int GetWeekNumberOfMonth(DateTime date)
+        {
+            date = date.Date;
+            DateTime firstMonthDay = new DateTime(date.Year, date.Month, 1);
+            DateTime firstMonthMonday = firstMonthDay.AddDays((DayOfWeek.Monday + 7 - firstMonthDay.DayOfWeek) % 7);
+            if (firstMonthMonday > date)
+            {
+                firstMonthDay = firstMonthDay.AddMonths(-1);
+                firstMonthMonday = firstMonthDay.AddDays((DayOfWeek.Monday + 7 - firstMonthDay.DayOfWeek) % 7);
+            }
+            return (date - firstMonthMonday).Days / 7 + 1;
+        }
         static void Main(string[] args)
-        {            
+        {           
             DateTime SD = DateTime.Now;
             Console.WriteLine("Start Processing...");
-            Parse(FileName);
+            
+
+            string[] Files = new string[] {  "sc031.cbl"
+                                            ,"sc033.cbl"
+                                            ,"sc499.cbl"
+                                            ,"sc500.cbl"
+                                            ,"sc601.cbl"
+                                            ,"sc605.cbl"
+                                            ,"sc607.cbl"
+                                            ,"sc700.cbl"};
+            foreach (var File in Files)
+            {
+                QueryStatementConverter.CursorSelectQueries = new Dictionary<string, string>();
+                WORKING_STORAGE_VARIABLE = new CobolVariable();
+                LINKAGE_SECTION_VARIABLE = new CobolVariable();
+                Console.WriteLine($"Process File=>{File}");
+                Console.WriteLine($"------------------------------------------------------");
+                FileName = File;
+                Parse(FileName);
+            }
+
+            
             Console.WriteLine($"Time Elapsed: {DateTime.Now.Subtract(SD).TotalMilliseconds} Milliseconds");
             Console.ReadLine();
         }
@@ -137,7 +170,7 @@ namespace CobolToCSharp
 
         private static void ConvertParagraphs(List<Paragraph> Paragraphs, Dictionary<string, string> DataTypes)
         {
-            string ClassName = FileName.Replace(".cbl", string.Empty);
+            string ClassName = FileName.Replace(".cbl", string.Empty).FirstCharToUpper();
             if (!Directory.Exists($@"{WorkingDir}\{ClassName}"))
             {
                 Directory.CreateDirectory($@"{WorkingDir}\{ClassName}");
@@ -148,8 +181,27 @@ namespace CobolToCSharp
             foreach (var Paragraph in Paragraphs)
             {
                 SetBlocks(Paragraph);               
-            }            
+            }
+
             using (StreamWriter CodeWriter = new StreamWriter($@"{WorkingDir}\{ClassName}\{ClassName}.cs"))
+            {                
+                CodeWriter.WriteLine($"using System;");
+                CodeWriter.WriteLine($"using System.Collections.Generic;");
+                CodeWriter.WriteLine($"using System.Linq;");
+                CodeWriter.WriteLine($"using System.Text;");
+                CodeWriter.WriteLine($"using System.Threading.Tasks;");
+                CodeWriter.WriteLine($"namespace {NameSpace}");
+                CodeWriter.WriteLine($"{{");
+                CodeWriter.WriteLine($"    public partial class {ClassName} : {ClassName}Base , IService {{");
+                CodeWriter.WriteLine($"        public string Name => \"{ClassName}\";");
+                CodeWriter.WriteLine($"        public override void Run()");
+                CodeWriter.WriteLine($"        {{");
+                CodeWriter.WriteLine($"            base.Run();");
+                CodeWriter.WriteLine($"        }}");
+                CodeWriter.WriteLine($"    }}");
+                CodeWriter.WriteLine($"}}");
+            }
+            using (StreamWriter CodeWriter = new StreamWriter($@"{WorkingDir}\{ClassName}\{ClassName}Base.cs"))
             {           
                 CodeWriter.WriteLine($"using System;");
                 CodeWriter.WriteLine($"using System.Collections.Generic;");
@@ -157,17 +209,17 @@ namespace CobolToCSharp
                 CodeWriter.WriteLine($"using System.Text;");
                 CodeWriter.WriteLine($"using System.Threading.Tasks;");
                 CodeWriter.WriteLine($"namespace {NameSpace}");
-                CodeWriter.WriteLine("{");
-                CodeWriter.WriteLine($"    public partial class {ClassName} : IService {{");                                
+                CodeWriter.WriteLine($"{{");
+                CodeWriter.WriteLine($"    public partial class {ClassName}Base {{");                                
                 using (StreamWriter LogWriter = new StreamWriter($@"{WorkingDir}\compare-result.log"))
                 {
-                    CodeWriter.WriteLine($"        public string Name {{get{{return \"{ClassName}\";}}}}");
                     CodeWriter.WriteLine($"        public virtual void Run()");
                     CodeWriter.WriteLine($"        {{");
                     CodeWriter.WriteLine($"            {NamingConverter.Convert(Paragraphs.First().Name)}(true,null);");                    
                     CodeWriter.WriteLine($"        }}");
                     for (int i = 0; i < Paragraphs.Count; i++)
                     {
+                        Console.WriteLine($"Process Paragraph #{(i+1)}");
                         var Paragraph = Paragraphs[i];
                         CodeWriter.WriteLine($"        private List<Stack> {NamingConverter.Convert(Paragraph.Name)}(bool CallNext,string[] NextScope)");
                         CodeWriter.WriteLine($"        {{");
@@ -197,16 +249,29 @@ namespace CobolToCSharp
         {
             int TAP_Level = 3;
             string TAP = "    ";
-            //StatementType[] SupportedTypes = new StatementType[] { StatementType.MOVE, StatementType.BEGIN_BLOCK, StatementType.COMMENT, StatementType.ELSE, StatementType.ELSE_IF, StatementType.IF, StatementType.QUERY, StatementType.ADD, StatementType.SUBTRACT,StatementType.MULTIPLY, StatementType.MULTIPLY,StatementType.DISPLAY, StatementType.CALL, StatementType. };
             Statement LastStatement = null;
+            bool StopWriting = false;
+            int BlockCounters = 0;
             foreach (var Statement in Paragraph.Statements)
             {
-                Statement.CobolVariablesDataTypes = DataTypes;
-
-                if(Statement.Converted.Equals("SQLCODE = GO = UPDT_TAB29 = ZERO;"))
+                if (StopWriting)
                 {
-                    string asd = Statement.Converted;
+                    if (Statement.StatementType == StatementType.BEGIN_BLOCK)
+                        BlockCounters++;
+                    else if (Statement.StatementType == StatementType.END_BLOCK)
+                        BlockCounters--;
+
+                    if(BlockCounters == 0)
+                    {
+                        StopWriting = false;
+                    }
+                    else
+                    {
+                        continue;
+                    }
                 }
+
+                Statement.CobolVariablesDataTypes = DataTypes;
 
                 if (!string.IsNullOrEmpty(Statement.Converted.Trim()))
                 {
@@ -237,6 +302,12 @@ namespace CobolToCSharp
                     LogWriter.WriteLine("Converted:");
                     LogWriter.WriteLine(Statement.Converted);
 
+                    if(Statement.StatementType == StatementType.GOTO)
+                    {
+                        StopWriting = true;
+                        BlockCounters = 1;
+                    }
+
                     LastStatement = Statement;
                 }
             }
@@ -251,7 +322,7 @@ namespace CobolToCSharp
         }
         private static Dictionary<string,string> WriteAllVariables(List<CobolVariable> WORKING_STORAGE_VARIABLES, List<CobolVariable> LINKAGE_SECTION_VARIABLES)
         {
-            string ClassName = FileName.Replace(".cbl", string.Empty);
+            string ClassName = FileName.Replace(".cbl", string.Empty).FirstCharToUpper();
             if (!Directory.Exists($@"{WorkingDir}\{ClassName}"))
             {
                 Directory.CreateDirectory($@"{WorkingDir}\{ClassName}");
@@ -270,7 +341,7 @@ namespace CobolToCSharp
                 CodeWriter.WriteLine($"using System.Threading.Tasks;");
                 CodeWriter.WriteLine($"namespace {NameSpace}");
                 CodeWriter.WriteLine($"{{");
-                CodeWriter.WriteLine($"    public partial class {ClassName} : BaseBusiness");
+                CodeWriter.WriteLine($"    public partial class {ClassName}Base : BaseBusiness");
                 CodeWriter.WriteLine($"    {{");
                 HashSet<string> ProcessedVariables = new HashSet<string>();
                 DataTypes.Merge<string,string>(WriterVariables(WORKING_STORAGE_VARIABLES, CodeWriter, ProcessedVariables));
@@ -286,6 +357,7 @@ namespace CobolToCSharp
             Dictionary<string, string> DataTypes = new Dictionary<string, string>();
             foreach (var Variable in Variables)
             {
+               
                 if (ProcessedVariables.Contains(Variable.RawName))
                     continue;
                 string Converted = Variable.ToString();
@@ -566,6 +638,10 @@ namespace CobolToCSharp
             {
                 RowNum++;
                 Line = Lines[i];
+                if(Line.Contains("05 DETAIL-USER1"))
+                {
+                    int x123 = 101;
+                }
                 //if(Line.Contains("IF NOT TP-OK DISPLAY \"SC031 : BAD STATUS FROM TPSERVICES = "))
                 //{
                 //    int x = 1230;

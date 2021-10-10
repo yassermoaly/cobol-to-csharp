@@ -13,7 +13,7 @@ namespace CobolToCSharp
         
         private string[] GetTokens(string Line)
         {
-            Line = Line.RegexReplace("ALL SPACES", "SPACES").RegexReplace("MOVE  ALL","MOVE");
+            Line = Line.RegexReplace("ALL[ ]+SPACES", "SPACES").RegexReplace("MOVE[ ]+ALL", "MOVE").Replace("MOVE ALL ZEROS", "MOVE ZEROS");
             var Matches = new Regex($"{"MOVE".RegexUpperLower()}[ ]+|([a-zA-Z-0-9]+|[Xx]*\".+\")[ ]+|{"TO".RegexUpperLower()}[ ]+|[a-zA-Z-0-9]+").Matches(Line);
             var MatchesT = new Regex($"{"MOVE".RegexUpperLower()}[ ]+|([a-zA-Z-0-9]+|\".+\")[ ]+|{"TO".RegexUpperLower()}[ ]+|[a-zA-Z-0-9]+").Matches(Line);
             string[] NewTokens = new string[Matches.Count];

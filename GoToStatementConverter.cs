@@ -17,7 +17,7 @@ namespace CobolToCSharp
             {
                 StringBuilder SB = new StringBuilder();
               
-                string FunctionName = Line.RegexReplace("GO", string.Empty).RegexReplace("TO", string.Empty).Replace(".", string.Empty).Trim();
+                string FunctionName = Line.RegexReplace("GO[ ]+", string.Empty).RegexReplace("TO[ ]+", string.Empty).Replace(".", string.Empty).Trim();
                 if (!string.IsNullOrEmpty(FunctionName))
                 {
                     SB.AppendLine($"#region {Line}");
